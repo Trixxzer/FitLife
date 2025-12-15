@@ -11,7 +11,7 @@ export default function Index() {
       }}
     >
       <Text className="font-bold text-lg my-10">Hello worlds</Text>
-      <Link href="/sign-in">SignIn</Link>
+      <Link href="/onboarding">SignIn</Link>
     </View>
   );
 }
