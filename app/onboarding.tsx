@@ -175,13 +175,13 @@ export default function Onboarding() {
           })}
         </View>
 
-        <Pressable style={styles.btn} onPress={() =>router.push("/")}>
+        <Pressable style={styles.btn} onPress={() =>router.push("../auth/ChooseRole")}>
           <Text style={styles.btnText} >Get started for Free</Text>
         </Pressable>
 
         <Text style={styles.login}>
           Already have an account?{" "}
-          <Text style={styles.loginLink} onPress={() => {}}>
+          <Text style={styles.loginLink} onPress={() => router.push("../auth/Login")}>
             Log In
           </Text>
         </Text>
