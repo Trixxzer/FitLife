@@ -43,12 +43,12 @@ const SLIDES: Slide[] = [
     subtitle: "Monitor sets, reps, and improvements over time",
     image: require("../assets/Onboarding/workout.jpg"),
   },
- {
-  title: "Train smarter\nwith ",
-  highlight: "Experts",
-  subtitle: "Connect with professional trainers for personalised fitness guidance",
-  image: require("../assets/Onboarding/trainer.jpg"),
-},
+  {
+    title: "Train smarter\nwith ",
+    highlight: "Experts",
+    subtitle: "Connect with professional trainers for personalised fitness guidance",
+    image: require("../assets/Onboarding/trainer.jpg"),
+  },
   {
     title: "Stay motivated\nwith ",
     highlight: "Gamification",
@@ -175,7 +175,7 @@ export default function Onboarding() {
           })}
         </View>
 
-        <Pressable style={styles.btn} onPress={() =>router.push("../auth/ChooseRole")}>
+        <Pressable style={styles.btn} onPress={() => router.push("../auth/ChooseRole")}>
           <Text style={styles.btnText} >Get started for Free</Text>
         </Pressable>
 
