@@ -1,17 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { router, useNavigation } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { supabase } from "../../lib/supabase";
 
 type Gender = "male" | "female" | "na";
 
@@ -21,85 +24,138 @@ export default function TrainerSignup() {
   useEffect(() => {
     navigation.setOptions({
       headerShown: false,
-      gestureEnabled: false, // keep consistent
+      gestureEnabled: false,
     });
   }, [navigation]);
+
+  // ✅ Auth
+  const [email, setEmail] = useState("");
 
   // Trainer fields
   const [fullName, setFullName] = useState("");
   const [gender, setGender] = useState<Gender>("na");
   const [age, setAge] = useState("");
   const [bio, setBio] = useState("");
-  const [certTitle, setCertTitle] = useState(""); // e.g. "NASM CPT"
-  const [certIssuer, setCertIssuer] = useState(""); // e.g. "NASM"
-  const [certYear, setCertYear] = useState(""); // e.g. "2024"
+  const [certTitle, setCertTitle] = useState("");
+  const [certIssuer, setCertIssuer] = useState("");
+  const [certYear, setCertYear] = useState("");
 
-  // Upload placeholders
+  // ✅ Real uploads (uri + filename)
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState<string | null>(null);
+
+  const [certificateUri, setCertificateUri] = useState<string | null>(null);
   const [certificateName, setCertificateName] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
 
   const isValid = useMemo(() => {
+    const cleanEmail = email.trim().toLowerCase();
+    const emailOk = /^\S+@\S+\.\S+$/.test(cleanEmail);
+
     const a = Number(age);
     const y = Number(certYear);
     const nameOk = fullName.trim().length >= 3;
     const ageOk = Number.isFinite(a) && a >= 18 && a <= 80;
     const certOk = certTitle.trim().length >= 2 && certIssuer.trim().length >= 2;
     const yearOk = certYear.trim() ? Number.isFinite(y) && y >= 1980 && y <= 2100 : true;
-    const uploadsOk = !!photoName && !!certificateName;
-    return nameOk && ageOk && certOk && yearOk && uploadsOk;
-  }, [fullName, age, certTitle, certIssuer, certYear, photoName, certificateName]);
+
+    const uploadsOk = !!photoUri && !!certificateUri;
+    return emailOk && nameOk && ageOk && certOk && yearOk && uploadsOk;
+  }, [email, fullName, age, certTitle, certIssuer, certYear, photoUri, certificateUri]);
 
   const pickPhoto = async () => {
-    // TODO: Use expo-image-picker
-    // For now: simulate selection
-    setPhotoName("trainer_photo.jpg");
-    Alert.alert("Selected", "Photo selected (placeholder). Hook ImagePicker later.");
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Permission needed", "Please allow photo access to upload a photo.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.85,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+
+      const name = asset.fileName ?? "trainer_photo.jpg";
+
+      setPhotoUri(asset.uri);
+      setPhotoName(name);
+    } catch (e: any) {
+      Alert.alert("Photo pick failed", e?.message || "Try again.");
+    }
   };
 
   const pickCertificate = async () => {
-    // TODO: Use expo-document-picker
-    setCertificateName("certificate.pdf");
-    Alert.alert("Selected", "Certificate selected (placeholder). Hook DocumentPicker later.");
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (res.canceled) return;
+      const file = res.assets?.[0];
+      if (!file?.uri) return;
+
+      setCertificateUri(file.uri);
+      setCertificateName(file.name ?? "certificate.pdf");
+    } catch (e: any) {
+      Alert.alert("Certificate pick failed", e?.message || "Try again.");
+    }
   };
 
   const submit = async () => {
     if (!isValid) {
-      Alert.alert(
-        "Please complete the form",
-        "Add valid details and upload a profile photo + certificate."
-      );
+      Alert.alert("Please complete the form", "Add valid details, photo + certificate.");
       return;
     }
 
     setLoading(true);
     try {
-      const payload = {
-        role: "trainer",
-        full_name: fullName.trim(),
-        gender,
-        age: Number(age),
-        bio: bio.trim(),
-        certification: {
-          title: certTitle.trim(),
-          issuer: certIssuer.trim(),
-          year: certYear.trim() ? Number(certYear) : null,
-        },
-        uploads: {
-          photo: photoName, // replace with real file uri later
-          certificate: certificateName, // replace with real file uri later
-        },
-      };
+      const cleanEmail = email.trim().toLowerCase();
 
-      // TODO: Replace with real API call (likely multipart/form-data)
-      await new Promise((r) => setTimeout(r, 700));
+      // ✅ Send OTP for trainer
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
 
-      Alert.alert(
-        "Application submitted ✅",
-        "We’ll verify your certificate and notify you soon.",
-        [{ text: "Done", onPress: () => router.replace("/auth/Login") }]
-      );
+      if (error) throw error;
+
+      // ✅ Go to VerifyOtp with trainer payload
+      router.push({
+        pathname: "/auth/VerifyOtp",
+        params: {
+          email: cleanEmail,
+
+          // role flags
+          role: "TRAINER",
+          trainerApproved: "false",
+
+          // trainer info
+          fullName: fullName.trim(),
+          gender,
+          age,
+          bio: bio.trim(),
+          certTitle: certTitle.trim(),
+          certIssuer: certIssuer.trim(),
+          certYear: certYear.trim(),
+
+          // upload uris (VerifyOtp will upload after OTP verification)
+          photoUri: photoUri ?? "",
+          photoName: photoName ?? "trainer_photo.jpg",
+          certificateUri: certificateUri ?? "",
+          certificateName: certificateName ?? "certificate.pdf",
+        },
+      });
     } catch (e: any) {
       Alert.alert("Something went wrong", e?.message || "Please try again.");
     } finally {
@@ -140,7 +196,19 @@ export default function TrainerSignup() {
 
         {/* Form */}
         <View style={{ marginTop: 24 }}>
-          <Text style={styles.label}>full name</Text>
+          {/* ✅ Email */}
+          <Text style={styles.label}>email</Text>
+          <TextInput
+            placeholder="e.g., trainer@email.com"
+            placeholderTextColor="#6B7690"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
+          <Text style={[styles.label, { marginTop: 16 }]}>full name</Text>
           <TextInput
             placeholder="e.g., Alex Johnson"
             placeholderTextColor="#6B7690"
@@ -157,7 +225,6 @@ export default function TrainerSignup() {
               <Pill active={gender === "female"} text="Female" onPress={() => setGender("female")} />
               <Pill active={gender === "na"} text="Others" onPress={() => setGender("na")} full />
             </View>
-            
           </View>
 
           <Text style={[styles.label, { marginTop: 16 }]}>age</Text>
@@ -242,14 +309,14 @@ export default function TrainerSignup() {
             <ActivityIndicator />
           ) : (
             <Text style={{ color: "white", fontSize: 16, fontWeight: "900" }}>
-              Submit application →
+              Send OTP →
             </Text>
           )}
         </TouchableOpacity>
 
         {!isValid && (
           <Text style={[styles.helper, { marginTop: 10, textAlign: "center" }]}>
-            Upload photo + certificate to enable submission.
+            Enter email + upload photo & certificate to continue.
           </Text>
         )}
       </View>

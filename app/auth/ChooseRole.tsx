@@ -125,7 +125,7 @@ export default function ChooseRole() {
           ]}
         >
           <Text style={{ color: "white", fontSize: 16, fontWeight: "900" }}>
-            Continue 
+            Continue
           </Text>
         </TouchableOpacity>
       </View>

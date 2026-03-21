@@ -1,6 +1,5 @@
 import { router } from "expo-router";
 import { useEffect } from "react";
-import { Text, View } from "react-native";
 import { supabase } from "../../lib/supabase";
 
 export default function AuthCallback() {
@@ -16,9 +15,9 @@ export default function AuthCallback() {
     run();
   }, []);
 
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color: "white" }}>Verifying...</Text>
-    </View>
-  );
+  // return (
+  //   // <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+  //   //   <Text style={{ color: "white" }}>Verifying...</Text>
+  //   // </View>
+  // );
 }

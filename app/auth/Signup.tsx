@@ -1,4 +1,3 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { router, useNavigation } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -18,45 +17,52 @@ import { supabase } from "../../lib/supabase";
 type Gender = "male" | "female" | "na" | "others";
 type GoalType = "lose_weight" | "gain_muscle" | "stay_fit" | "endurance";
 type Unit = "kg" | "lb";
+type HeightUnit = "cm" | "ft";
+type ActivityLevel =
+  | "sedentary"
+  | "lightly_active"
+  | "moderately_active"
+  | "very_active"
+  | "extra_active";
 
 export default function Signup() {
   const navigation = useNavigation();
 
-  // ✅ Disable swipe-back ONLY for Signup
   useEffect(() => {
     navigation.setOptions({
       gestureEnabled: false,
     });
   }, [navigation]);
 
-  // Step control
-  const [step, setStep] = useState(1); // 1..7
-  const totalSteps = 7;
+  const [step, setStep] = useState(1);
+  const totalSteps = 9;
 
-  // Data collected across steps
   const [firstName, setFirstName] = useState("");
   const [gender, setGender] = useState<Gender>("male");
   const [age, setAge] = useState("");
+
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>("cm");
+  const [height, setHeight] = useState("");
+
   const [unit, setUnit] = useState<Unit>("kg");
   const [currentWeight, setCurrentWeight] = useState("");
   const [goalWeight, setGoalWeight] = useState("");
+
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel>("moderately_active");
   const [goalType, setGoalType] = useState<GoalType>("lose_weight");
 
-  // Account step
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // ✅ Eye toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
-  // ✅ Intercept ANY back action (gesture / header back / android back) to go previous step
   useEffect(() => {
     const unsub = navigation.addListener("beforeRemove", (e: any) => {
-      if (step === 1) return; // allow leaving screen
+      if (step === 1) return;
       e.preventDefault();
       setStep((s) => Math.max(1, s - 1));
     });
@@ -64,7 +70,6 @@ export default function Signup() {
     return unsub;
   }, [navigation, step]);
 
-  // ✅ Optional: auto-hide eye when switching steps
   useEffect(() => {
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -84,12 +89,16 @@ export default function Signup() {
       case 3:
         return "How old are you?";
       case 4:
-        return "What’s your current weight?";
+        return "What’s your height?";
       case 5:
-        return "What’s your goal weight?";
+        return "What’s your current weight?";
       case 6:
-        return "What’s your primary fitness goal?";
+        return "What’s your goal weight?";
       case 7:
+        return "How active are you?";
+      case 8:
+        return "What’s your primary fitness goal?";
+      case 9:
         return "Create your account";
       default:
         return "";
@@ -105,12 +114,16 @@ export default function Signup() {
       case 3:
         return "Age helps us recommend safe and effective plans.";
       case 4:
-        return "We’ll track your progress starting from here.";
+        return "Height helps us estimate your calorie target more accurately.";
       case 5:
-        return "This helps us set realistic milestones.";
+        return "We’ll track your progress starting from here.";
       case 6:
-        return "We’ll tailor workouts and nutrition to match your goal.";
+        return "This helps us set realistic milestones.";
       case 7:
+        return "Activity level helps us calculate your daily calorie needs.";
+      case 8:
+        return "We’ll tailor workouts and nutrition to match your goal.";
+      case 9:
         return "Add your email and password to save your profile.";
       default:
         return "";
@@ -130,18 +143,26 @@ export default function Signup() {
     }
 
     if (step === 4) {
+      const n = toNum(height);
+      if (!Number.isFinite(n)) return false;
+      return heightUnit === "cm" ? n >= 100 && n <= 250 : n >= 3 && n <= 8;
+    }
+
+    if (step === 5) {
       const n = toNum(currentWeight);
       return Number.isFinite(n) && n > 20 && n < 400;
     }
 
-    if (step === 5) {
+    if (step === 6) {
       const n = toNum(goalWeight);
       return Number.isFinite(n) && n > 20 && n < 400;
     }
 
-    if (step === 6) return !!goalType;
+    if (step === 7) return !!activityLevel;
 
-    if (step === 7) {
+    if (step === 8) return !!goalType;
+
+    if (step === 9) {
       const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
       const passOk = password.length >= 8;
       const matchOk = password === confirmPassword;
@@ -154,8 +175,11 @@ export default function Signup() {
     firstName,
     gender,
     age,
+    height,
+    heightUnit,
     currentWeight,
     goalWeight,
+    activityLevel,
     goalType,
     email,
     password,
@@ -172,41 +196,45 @@ export default function Signup() {
   };
 
   const handleFinish = async () => {
-  if (!stepValid) return;
+    if (!stepValid) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const cleanEmail = email.trim().toLowerCase();
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: cleanEmail,
-      options: {
-        shouldCreateUser: true,
-      },
-    });
-
-    if (error) throw error;
-    router.push({
-      pathname: "/auth/VerifyOtp",
-      params: {
+      const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
-        firstName,
-        gender,
-        age,
-        unit,
-        currentWeight,
-        goalWeight,
-        goalType,
-      },
-    });
+        options: {
+          shouldCreateUser: true,
+        },
+      });
 
-  } catch (e: any) {
-    Alert.alert("Failed to send code", e?.message ?? "Try again");
-  } finally {
-    setLoading(false);
-  }
-};
+      if (error) throw error;
+
+      router.push({
+        pathname: "/auth/VerifyOtp",
+        params: {
+          email: cleanEmail,
+          role: "USER",
+          firstName,
+          gender,
+          age,
+          height,
+          heightUnit,
+          unit,
+          currentWeight,
+          goalWeight,
+          activityLevel,
+          goalType,
+        },
+      });
+    } catch (e: any) {
+      Alert.alert("Failed to send code", e?.message ?? "Try again");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -218,13 +246,8 @@ export default function Signup() {
         contentContainerStyle={{ padding: 20, paddingBottom: 140 }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={goBack}
-            activeOpacity={0.85}
-            style={styles.backBtn}
-          >
+          <TouchableOpacity onPress={goBack} activeOpacity={0.85} style={styles.backBtn}>
             <Ionicons name="arrow-back-outline" size={25} color="white" />
           </TouchableOpacity>
 
@@ -239,11 +262,9 @@ export default function Signup() {
           </View>
         </View>
 
-        {/* Main heading */}
         <Text style={styles.bigTitle}>{title}</Text>
         <Text style={styles.subTitle}>{subtitle}</Text>
 
-        {/* Step content */}
         <View style={{ marginTop: 24 }}>
           {step === 1 && (
             <>
@@ -262,21 +283,9 @@ export default function Signup() {
           {step === 2 && (
             <View style={{ gap: 12 }}>
               <PillRow>
-                <Pill
-                  active={gender === "male"}
-                  text="Male"
-                  onPress={() => setGender("male")}
-                />
-                <Pill
-                  active={gender === "female"}
-                  text="Female"
-                  onPress={() => setGender("female")}
-                />
-                <Pill
-                  active={gender === "others"}
-                  text="Others"
-                  onPress={() => setGender("others")}
-                />
+                <Pill active={gender === "male"} text="Male" onPress={() => setGender("male")} />
+                <Pill active={gender === "female"} text="Female" onPress={() => setGender("female")} />
+                <Pill active={gender === "others"} text="Others" onPress={() => setGender("others")} />
               </PillRow>
               <Pill
                 active={gender === "na"}
@@ -305,6 +314,26 @@ export default function Signup() {
           {step === 4 && (
             <>
               <RowBetween>
+                <Text style={styles.label}>height</Text>
+                <HeightUnitToggle heightUnit={heightUnit} setHeightUnit={setHeightUnit} />
+              </RowBetween>
+              <TextInput
+                placeholder={heightUnit === "cm" ? "e.g., 175" : "e.g., 5.8"}
+                placeholderTextColor="#6B7690"
+                value={height}
+                onChangeText={(t) => setHeight(t.replace(/[^0-9.,]/g, ""))}
+                style={styles.input}
+                keyboardType="numeric"
+              />
+              <Text style={styles.helper}>
+                {heightUnit === "cm" ? "Allowed range: 100–250 cm" : "Allowed range: 3–8 ft"}
+              </Text>
+            </>
+          )}
+
+          {step === 5 && (
+            <>
+              <RowBetween>
                 <Text style={styles.label}>current weight</Text>
                 <UnitToggle unit={unit} setUnit={setUnit} />
               </RowBetween>
@@ -319,7 +348,7 @@ export default function Signup() {
             </>
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <>
               <RowBetween>
                 <Text style={styles.label}>goal weight</Text>
@@ -336,7 +365,42 @@ export default function Signup() {
             </>
           )}
 
-          {step === 6 && (
+          {step === 7 && (
+            <View style={{ gap: 12 }}>
+              <Pill
+                active={activityLevel === "sedentary"}
+                text="Sedentary"
+                onPress={() => setActivityLevel("sedentary")}
+                full
+              />
+              <Pill
+                active={activityLevel === "lightly_active"}
+                text="Lightly active"
+                onPress={() => setActivityLevel("lightly_active")}
+                full
+              />
+              <Pill
+                active={activityLevel === "moderately_active"}
+                text="Moderately active"
+                onPress={() => setActivityLevel("moderately_active")}
+                full
+              />
+              <Pill
+                active={activityLevel === "very_active"}
+                text="Very active"
+                onPress={() => setActivityLevel("very_active")}
+                full
+              />
+              <Pill
+                active={activityLevel === "extra_active"}
+                text="Extra active"
+                onPress={() => setActivityLevel("extra_active")}
+                full
+              />
+            </View>
+          )}
+
+          {step === 8 && (
             <View style={{ gap: 12 }}>
               <Pill
                 active={goalType === "lose_weight"}
@@ -365,7 +429,7 @@ export default function Signup() {
             </View>
           )}
 
-          {step === 7 && (
+          {step === 9 && (
             <>
               <Text style={styles.label}>email</Text>
               <TextInput
@@ -432,7 +496,6 @@ export default function Signup() {
         </View>
       </ScrollView>
 
-      {/* Fixed bottom CTA */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           onPress={goNext}
@@ -455,8 +518,6 @@ export default function Signup() {
     </KeyboardAvoidingView>
   );
 }
-
-/* ---------- Small UI helpers ---------- */
 
 function RowBetween({ children }: { children: React.ReactNode }) {
   return (
@@ -522,7 +583,32 @@ function UnitToggle({ unit, setUnit }: { unit: Unit; setUnit: (u: Unit) => void 
   );
 }
 
-/* ---------- Styles ---------- */
+function HeightUnitToggle({
+  heightUnit,
+  setHeightUnit,
+}: {
+  heightUnit: HeightUnit;
+  setHeightUnit: (u: HeightUnit) => void;
+}) {
+  return (
+    <View style={{ flexDirection: "row", gap: 8 }}>
+      <TouchableOpacity
+        onPress={() => setHeightUnit("cm")}
+        activeOpacity={0.9}
+        style={[styles.unitBtn, { backgroundColor: heightUnit === "cm" ? "#FF4D2D" : "transparent" }]}
+      >
+        <Text style={{ color: heightUnit === "cm" ? "white" : "#9AA6BD", fontWeight: "900" }}>cm</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => setHeightUnit("ft")}
+        activeOpacity={0.9}
+        style={[styles.unitBtn, { backgroundColor: heightUnit === "ft" ? "#FF4D2D" : "transparent" }]}
+      >
+        <Text style={{ color: heightUnit === "ft" ? "white" : "#9AA6BD", fontWeight: "900" }}>ft</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 const styles = {
   header: {

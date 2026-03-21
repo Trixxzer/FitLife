@@ -3,16 +3,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { supabase } from "../../lib/supabase";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,16 +36,34 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      const payload = {
-        email: email.trim().toLowerCase(),
+      const cleanEmail = email.trim().toLowerCase();
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
         password,
-      };
+      });
+      if (error) throw error;
 
-      // TODO: replace with your API call
-      await new Promise((r) => setTimeout(r, 600));
+      const userId = data.user?.id;
+      if (!userId) throw new Error("No user returned");
 
-      // router.replace("/(tabs)/home");
-      Alert.alert("Logged in ✅", "Connect this to your API + role redirect.");
+      const { data: profile, error: profErr } = await supabase
+        .from("profiles")
+        .select("role, trainer_approved")
+        .eq("id", userId)
+        .single();
+
+      if (profErr) throw profErr;
+
+      if (profile.role === "TRAINER" && !profile.trainer_approved) {
+        Alert.alert("Pending approval", "Your trainer account is waiting for admin approval.");
+        router.replace("/auth/Login");
+        return;
+      }
+
+      // route based on role
+      if (profile.role === "TRAINER") router.replace("/trainerTabs/dashboard"); // your trainer tab
+      else router.replace("/userTabs/diet"); // your user home
     } catch (e: any) {
       Alert.alert("Login failed", e?.message || "Please try again.");
     } finally {
@@ -115,9 +134,7 @@ export default function Login() {
 
         {/* Forgot Password */}
         <TouchableOpacity
-          onPress={() => Alert.alert("Forgot Password", "Connect this to your reset flow later.")}
-          activeOpacity={0.85}
-          style={{ marginTop: 10, alignSelf: "flex-end" }}
+          onPress={() => router.push("/auth/ForgotPassword")} style={{ marginTop: 12 }}
         >
           <Text style={{ color: "#9AA6BD", fontWeight: "800" }}>Forgot password?</Text>
         </TouchableOpacity>

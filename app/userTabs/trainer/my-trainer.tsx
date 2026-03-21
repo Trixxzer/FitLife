@@ -46,7 +46,7 @@ export default function MyTrainer() {
 
                     <Text style={styles.headerTitle}>My Trainer</Text>
 
-                    <TouchableOpacity activeOpacity={0.9} style={styles.iconBtn} onPress={() => router.push("/(tabs)/trainer/browse")}>
+                    <TouchableOpacity activeOpacity={0.9} style={styles.iconBtn} onPress={() => router.push("/userTabs/trainer/browse")}>
                         <Ionicons name="people-outline" size={20} color="white" />
                     </TouchableOpacity>
                 </View>
@@ -59,7 +59,7 @@ export default function MyTrainer() {
                             Browse trainers and send a request to start coaching.
                         </Text>
 
-                        <TouchableOpacity activeOpacity={0.9} style={[styles.btnSolid, { marginTop: 14 }]} onPress={() => router.push("/(tabs)/trainer/browse")}>
+                        <TouchableOpacity activeOpacity={0.9} style={[styles.btnSolid, { marginTop: 14 }]} onPress={() => router.push("/userTabs/trainer/browse")}>
                             <Text style={{ color: "white", fontWeight: "900" }}>Browse Trainers</Text>
                         </TouchableOpacity>
                     </View>
@@ -97,7 +97,7 @@ export default function MyTrainer() {
                                 <TouchableOpacity
                                     activeOpacity={0.9}
                                     style={[styles.btnSolid, { flex: 1 }]}
-                                    onPress={() => router.push(`/(tabs)/trainer/${coach.id}`)}
+                                    onPress={() => router.push(`/userTabs/trainer/${coach.id}`)}
                                 >
                                     <Text style={{ color: "white", fontWeight: "900" }}>View Profile</Text>
                                 </TouchableOpacity>
@@ -153,22 +153,6 @@ export default function MyTrainer() {
                                     </TouchableOpacity>
                                 </View>
                             </View>
-                        </View>
-
-                        {/* Progress */}
-                        <View style={[styles.card, { marginTop: 12 }]}>
-                            <Text style={styles.cardTitle}>PROGRESS</Text>
-
-                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
-                                <StatTile icon="flame-outline" label="Streak" value="4 days" />
-                                <StatTile icon="barbell-outline" label="Workouts" value="12" />
-                                <StatTile icon="walk-outline" label="Steps avg" value="5,430" />
-                                <StatTile icon="water-outline" label="Water avg" value="1.8L" />
-                            </View>
-
-                            <Text style={{ color: MUTED, marginTop: 10, fontSize: 12 }}>
-                                Later we’ll calculate this from Diet + Workout logs.
-                            </Text>
                         </View>
                     </>
                 )}

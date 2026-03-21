@@ -1,28 +1,61 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { supabase } from "../../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
 const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
+type WorkoutRow = {
+    id: string;
+    title: string;
+    category: string | null;
+    difficulty: string | null;
+    duration_mins: number | null;
+};
+
 export default function BrowseWorkouts() {
-    const workouts = useMemo(
-        () => [
-            { id: "1", title: "Push-ups", meta: "Chest • Beginner • 6 mins" },
-            { id: "2", title: "Squats", meta: "Legs • Beginner • 8 mins" },
-            { id: "3", title: "Plank", meta: "Core • Intermediate • 5 mins" },
-            { id: "4", title: "HIIT Burn", meta: "Cardio • Advanced • 15 mins" },
-        ],
-        []
+    const [loading, setLoading] = useState(true);
+    const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
+
+    useEffect(() => {
+        loadWorkouts();
+    }, []);
+
+    async function loadWorkouts() {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from("workouts")
+                .select("id,title,category,difficulty,duration_mins")
+                .eq("is_active", true)
+                .order("created_at", { ascending: true });
+
+            if (error) throw error;
+            setWorkouts((data || []) as WorkoutRow[]);
+        } catch (e) {
+            console.log("loadWorkouts error", e);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const uiWorkouts = useMemo(
+        () =>
+            workouts.map((w) => ({
+                id: w.id,
+                title: w.title,
+                meta: `${w.category ?? "Workout"} • ${w.difficulty ?? "—"} • ${w.duration_mins ?? 0} mins`,
+            })),
+        [workouts]
     );
 
     return (
         <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-                {/* Header */}
                 <View style={styles.headerCard}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.hello}>Browse</Text>
@@ -35,32 +68,38 @@ export default function BrowseWorkouts() {
 
                 <Text style={styles.sectionTitle}>Workouts</Text>
 
-                <View style={{ gap: 12 }}>
-                    {workouts.map((w) => (
-                        <TouchableOpacity
-                            key={w.id}
-                            activeOpacity={0.9}
-                            style={styles.rowCard}
-                            onPress={() =>
-                                router.push({
-                                    pathname: "/userTabs/workout/details",
-                                    params: { id: w.id },
-                                })
-                            }
-                        >
-                            <View style={styles.leftIcon}>
-                                <Ionicons name="barbell-outline" size={18} color={ACCENT} />
-                            </View>
+                {loading ? (
+                    <View style={{ paddingVertical: 30, alignItems: "center" }}>
+                        <ActivityIndicator color={ACCENT} />
+                    </View>
+                ) : (
+                    <View style={{ gap: 12 }}>
+                        {uiWorkouts.map((w) => (
+                            <TouchableOpacity
+                                key={w.id}
+                                activeOpacity={0.9}
+                                style={styles.rowCard}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/userTabs/workout/details",
+                                        params: { id: w.id },
+                                    })
+                                }
+                            >
+                                <View style={styles.leftIcon}>
+                                    <Ionicons name="barbell-outline" size={18} color={ACCENT} />
+                                </View>
 
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.rowTitle}>{w.title}</Text>
-                                <Text style={styles.rowMeta}>{w.meta}</Text>
-                            </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rowTitle}>{w.title}</Text>
+                                    <Text style={styles.rowMeta}>{w.meta}</Text>
+                                </View>
 
-                            <Ionicons name="chevron-forward" size={18} color="#C7CFDD" />
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                                <Ionicons name="chevron-forward" size={18} color="#C7CFDD" />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
             </ScrollView>
         </View>
     );
@@ -95,7 +134,6 @@ const styles = {
         marginTop: 14,
         marginBottom: 8,
     },
-
     rowCard: {
         borderRadius: 22,
         backgroundColor: CARD,

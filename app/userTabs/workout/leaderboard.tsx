@@ -1,22 +1,52 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { supabase } from "../../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
 const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
+type Row = {
+    name: string;
+    score: number;
+};
+
 export default function Leaderboard() {
-    const rows = useMemo(
-        () => [
-            { name: "Prajwal", score: 52 },
-            { name: "Asmita", score: 45 },
-            { name: "Rashfa", score: 39 },
-            { name: "John", score: 34 },
-        ],
-        []
-    );
+    const [loading, setLoading] = useState(true);
+    const [rows, setRows] = useState<Row[]>([]);
+
+    useEffect(() => {
+        loadLeaderboard();
+    }, []);
+
+    async function loadLeaderboard() {
+        try {
+            setLoading(true);
+
+            const { data, error } = await supabase
+                .from("challenge_scores")
+                .select("score,user_id")
+                .eq("challenge_key", "pushup_60s")
+                .order("score", { ascending: false })
+                .limit(20);
+
+            if (error) throw error;
+
+            const mapped =
+                (data || []).map((r: any, idx: number) => ({
+                    name: `User ${idx + 1}`,
+                    score: r.score,
+                })) || [];
+
+            setRows(mapped);
+        } catch (e) {
+            console.log("loadLeaderboard error", e);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
         <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
@@ -35,18 +65,24 @@ export default function Leaderboard() {
                 <Text style={styles.sectionTitle}>Top 20</Text>
 
                 <View style={styles.bigCard}>
-                    {rows.map((r, idx) => (
-                        <View key={r.name} style={styles.row}>
-                            <Text style={styles.rank}>{idx + 1}</Text>
-                            <Text style={styles.name}>{r.name}</Text>
-                            <Text style={styles.score}>{r.score} reps</Text>
+                    {loading ? (
+                        <View style={{ padding: 20, alignItems: "center" }}>
+                            <ActivityIndicator color={ACCENT} />
                         </View>
-                    ))}
+                    ) : rows.length === 0 ? (
+                        <View style={{ padding: 20, alignItems: "center" }}>
+                            <Text style={{ color: MUTED }}>No scores yet.</Text>
+                        </View>
+                    ) : (
+                        rows.map((r, idx) => (
+                            <View key={`${r.name}-${idx}`} style={styles.row}>
+                                <Text style={styles.rank}>{idx + 1}</Text>
+                                <Text style={styles.name}>{r.name}</Text>
+                                <Text style={styles.score}>{r.score} reps</Text>
+                            </View>
+                        ))
+                    )}
                 </View>
-
-                <Text style={{ color: MUTED, marginTop: 12, fontSize: 12 }}>
-                    Next: connect this to Supabase challenge_scores table.
-                </Text>
             </ScrollView>
         </View>
     );

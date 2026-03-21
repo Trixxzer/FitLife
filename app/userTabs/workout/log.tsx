@@ -1,7 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { supabase } from "../../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
@@ -9,128 +18,115 @@ const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 const BG = "#0B0F1A";
 
-type ExerciseRow = {
+type WorkoutRow = {
     id: string;
-    name: string;
-    sets: string; // optional now (can be auto)
-    repsPerSet: string; // "12,10,8"
-    weight: string; // kg (same weight across sets)
-    duration: string; // mins
-    notes: string;
+    title: string;
+    category: string | null;
+    difficulty: string | null;
+    duration_mins: number | null;
+    kcal_estimate: number | null;
 };
 
 export default function LogWorkout() {
-    const [title, setTitle] = useState("My Workout");
-    const [workoutType, setWorkoutType] = useState<"strength" | "cardio" | "hiit" | "mobility">("strength");
-    const [dateText, setDateText] = useState(() => new Date().toLocaleDateString());
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    const [exercises, setExercises] = useState<ExerciseRow[]>([
-        {
-            id: "ex-1",
-            name: "Push-ups",
-            sets: "3",
-            repsPerSet: "12,10,8",
-            weight: "0",
-            duration: "",
-            notes: "",
-        },
-    ]);
+    const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
+    const [query, setQuery] = useState("");
+    const [selectedWorkout, setSelectedWorkout] = useState<WorkoutRow | null>(null);
 
-    const addExercise = () => {
-        setExercises((prev) => [
-            ...prev,
-            {
-                id: `ex-${Date.now()}`,
-                name: "",
-                sets: "",
-                repsPerSet: "",
-                weight: "",
-                duration: "",
-                notes: "",
-            },
-        ]);
-    };
+    const [duration, setDuration] = useState("");
+    const [dateText, setDateText] = useState(() => new Date().toISOString().slice(0, 10));
 
-    const removeExercise = (id: string) => {
-        setExercises((prev) => prev.filter((x) => x.id !== id));
-    };
+    useEffect(() => {
+        loadWorkouts();
+    }, []);
 
-    const updateExercise = (id: string, patch: Partial<ExerciseRow>) => {
-        setExercises((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-    };
+    async function loadWorkouts() {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from("workouts")
+                .select("id,title,category,difficulty,duration_mins,kcal_estimate")
+                .eq("is_active", true)
+                .order("title", { ascending: true });
 
-    const summary = useMemo(() => {
-        let totalSets = 0;
-        let totalReps = 0;
-        let totalVolume = 0; // sum(reps) * weight
-        let totalMins = 0;
-
-        for (const ex of exercises) {
-            const repsList = parseRepsList(ex.repsPerSet);
-            const setsFromList = repsList.length;
-
-            const sets = num(ex.sets) > 0 ? num(ex.sets) : setsFromList;
-            const repsSum = repsList.reduce((a, b) => a + b, 0);
-
-            const weight = num(ex.weight);
-            const duration = num(ex.duration);
-
-            totalSets += sets;
-            totalReps += repsSum;
-            totalVolume += repsSum * weight;
-            totalMins += duration;
+            if (error) throw error;
+            setWorkouts((data || []) as WorkoutRow[]);
+        } catch (e: any) {
+            Alert.alert("Error", e?.message || "Failed to load workouts.");
+        } finally {
+            setLoading(false);
         }
+    }
 
-        return { totalSets, totalReps, totalVolume, totalMins };
-    }, [exercises]);
+    const filteredWorkouts = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return workouts;
+        return workouts.filter((w) => w.title.toLowerCase().includes(q));
+    }, [query, workouts]);
 
-    const saveWorkout = async () => {
-        if (title.trim().length < 2) {
-            Alert.alert("Missing title", "Please enter a workout title.");
-            return;
-        }
-        if (exercises.length === 0) {
-            Alert.alert("No exercises", "Add at least one exercise.");
-            return;
-        }
-        const anyEmpty = exercises.some((x) => x.name.trim().length < 2);
-        if (anyEmpty) {
-            Alert.alert("Missing exercise name", "Please enter a name for each exercise.");
+    const durationNum = Number(duration || "0");
+    const caloriesBurned = useMemo(() => {
+        if (!selectedWorkout) return 0;
+        const baseDuration = Number(selectedWorkout.duration_mins || 0);
+        const baseCalories = Number(selectedWorkout.kcal_estimate || 0);
+        if (baseDuration <= 0 || baseCalories <= 0 || durationNum <= 0) return 0;
+
+        const caloriesPerMin = baseCalories / baseDuration;
+        return Math.round(durationNum * caloriesPerMin);
+    }, [selectedWorkout, durationNum]);
+
+    async function saveWorkout() {
+        if (!selectedWorkout) {
+            Alert.alert("Select workout", "Please choose a workout first.");
             return;
         }
 
-        // ✅ Validate reps-per-set input
-        for (const ex of exercises) {
-            const repsList = parseRepsList(ex.repsPerSet);
-            const sets = num(ex.sets);
-
-            if (repsList.length === 0) {
-                Alert.alert("Missing reps", `Please enter reps per set for "${ex.name}". Example: 12,10,8`);
-                return;
-            }
-
-            // If sets is provided, enforce exact match
-            if (sets > 0 && repsList.length !== sets) {
-                Alert.alert(
-                    "Sets mismatch",
-                    `"${ex.name}" has ${sets} sets but you entered ${repsList.length} rep values.\nExample: 12,10,8`
-                );
-                return;
-            }
+        if (!durationNum || durationNum <= 0) {
+            Alert.alert("Invalid duration", "Please enter a valid duration in minutes.");
+            return;
         }
 
-        // TODO: Connect to Supabase
-        // const payload = { title, workoutType, date: new Date().toISOString(), exercises };
+        try {
+            setSaving(true);
 
-        Alert.alert("Saved ✅", "Workout saved (connect Supabase next).", [
-            { text: "OK", onPress: () => router.back() },
-        ]);
-    };
+            const {
+                data: { user },
+                error: userErr,
+            } = await supabase.auth.getUser();
+
+            if (userErr) throw userErr;
+            if (!user) throw new Error("You must be logged in.");
+
+            const { error } = await supabase.from("workout_logs").insert({
+                user_id: user.id,
+                workout_id: selectedWorkout.id,
+                title: selectedWorkout.title,
+                workout_type: "strength",
+                workout_date: dateText,
+                total_sets: 0,
+                total_reps: 0,
+                total_volume: 0,
+                total_duration_mins: durationNum,
+                calories_burned: caloriesBurned,
+            });
+
+            if (error) throw error;
+
+            Alert.alert("Saved ✅", "Workout logged successfully.", [
+                { text: "OK", onPress: () => router.back() },
+            ]);
+        } catch (e: any) {
+            Alert.alert("Save failed", e?.message || "Please try again.");
+        } finally {
+            setSaving(false);
+        }
+    }
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-                {/* Header */}
                 <View style={styles.headerRow}>
                     <TouchableOpacity activeOpacity={0.9} style={styles.iconBtn} onPress={() => router.back()}>
                         <Ionicons name="arrow-back-outline" size={22} color="white" />
@@ -138,232 +134,125 @@ export default function LogWorkout() {
 
                     <Text style={styles.headerTitle}>Log Workout</Text>
 
-                    <TouchableOpacity activeOpacity={0.9} style={styles.iconBtn} onPress={addExercise}>
-                        <Ionicons name="add" size={22} color="white" />
-                    </TouchableOpacity>
+                    <View style={styles.iconBtn} />
                 </View>
 
-                {/* Summary card */}
-                <View style={[styles.card, { marginTop: 12 }]}>
-                    <Text style={styles.cardTitle}>SUMMARY</Text>
-
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
-                        <MiniStat icon="layers-outline" label="Sets" value={`${summary.totalSets}`} />
-                        <MiniStat icon="repeat-outline" label="Reps" value={`${summary.totalReps}`} />
-                        <MiniStat icon="barbell-outline" label="Volume" value={`${Math.round(summary.totalVolume)} kg`} />
-                        <MiniStat icon="time-outline" label="Duration" value={`${summary.totalMins} mins`} />
-                    </View>
-
-                    <Text style={{ color: MUTED, marginTop: 10, fontSize: 12 }}>
-                        Volume = total reps × weight (per exercise). Reps are summed from “reps per set”.
-                    </Text>
-                </View>
-
-                {/* Top card (title + type + date) */}
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>WORKOUT DETAILS</Text>
+                    <Text style={styles.cardTitle}>SEARCH WORKOUT</Text>
 
-                    <Text style={styles.label}>workout title</Text>
+                    <Text style={styles.label}>search</Text>
                     <TextInput
-                        value={title}
-                        onChangeText={setTitle}
-                        placeholder="e.g., Upper Body Strength"
+                        value={query}
+                        onChangeText={setQuery}
+                        placeholder="e.g., Push-ups, Squats, Plank"
                         placeholderTextColor="#6B7690"
                         style={styles.input}
                     />
 
-                    <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                        <TypePill active={workoutType === "strength"} text="Strength" onPress={() => setWorkoutType("strength")} />
-                        <TypePill active={workoutType === "cardio"} text="Cardio" onPress={() => setWorkoutType("cardio")} />
-                        <TypePill active={workoutType === "hiit"} text="HIIT" onPress={() => setWorkoutType("hiit")} />
-                        <TypePill active={workoutType === "mobility"} text="Mobility" onPress={() => setWorkoutType("mobility")} />
+                    {loading ? (
+                        <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                            <ActivityIndicator color={ACCENT} />
+                        </View>
+                    ) : (
+                        <View style={{ marginTop: 12, gap: 10 }}>
+                            {filteredWorkouts.slice(0, 8).map((w) => {
+                                const active = selectedWorkout?.id === w.id;
+                                return (
+                                    <TouchableOpacity
+                                        key={w.id}
+                                        activeOpacity={0.9}
+                                        onPress={() => setSelectedWorkout(w)}
+                                        style={[
+                                            styles.workoutRow,
+                                            active && {
+                                                borderColor: ACCENT,
+                                                backgroundColor: "rgba(255,77,45,0.12)",
+                                            },
+                                        ]}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.workoutTitle}>{w.title}</Text>
+                                            <Text style={styles.workoutMeta}>
+                                                {w.category ?? "Workout"} • {w.difficulty ?? "—"} • {w.duration_mins ?? 0} mins •{" "}
+                                                {w.kcal_estimate ?? 0} kcal
+                                            </Text>
+                                        </View>
+
+                                        {active && <Ionicons name="checkmark-circle" size={20} color={ACCENT} />}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
+                </View>
+
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>LOG DETAILS</Text>
+
+                    <Text style={styles.label}>selected workout</Text>
+                    <View style={styles.readonlyBox}>
+                        <Text style={{ color: "white", fontWeight: "800" }}>
+                            {selectedWorkout ? selectedWorkout.title : "No workout selected"}
+                        </Text>
                     </View>
+
+                    <Text style={[styles.label, { marginTop: 12 }]}>duration (mins)</Text>
+                    <TextInput
+                        value={duration}
+                        onChangeText={(t) => setDuration(t.replace(/\D/g, ""))}
+                        placeholder="e.g., 12"
+                        placeholderTextColor="#6B7690"
+                        keyboardType="numeric"
+                        style={styles.input}
+                    />
 
                     <Text style={[styles.label, { marginTop: 12 }]}>date</Text>
                     <TextInput
                         value={dateText}
                         onChangeText={setDateText}
-                        placeholder="e.g., 3/2/2026"
+                        placeholder="YYYY-MM-DD"
                         placeholderTextColor="#6B7690"
                         style={styles.input}
                     />
                 </View>
 
-                {/* Exercises */}
-                <Text style={styles.sectionTitle}>Exercises</Text>
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>SUMMARY</Text>
 
-                <View style={{ gap: 12 }}>
-                    {exercises.map((ex, idx) => (
-                        <View key={ex.id} style={styles.exerciseCard}>
-                            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                                <Text style={{ color: "white", fontWeight: "900" as const }}>Exercise {idx + 1}</Text>
+                    <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                        <MiniStat label="Duration" value={`${durationNum || 0} mins`} />
+                        <MiniStat label="Calories" value={`${caloriesBurned} kcal`} />
+                    </View>
 
-                                {exercises.length > 1 && (
-                                    <TouchableOpacity activeOpacity={0.9} onPress={() => removeExercise(ex.id)} style={styles.trashBtn}>
-                                        <Ionicons name="trash-outline" size={18} color="#FFD3CA" />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-
-                            <Text style={[styles.label, { marginTop: 10 }]}>exercise name</Text>
-                            <TextInput
-                                value={ex.name}
-                                onChangeText={(t) => updateExercise(ex.id, { name: t })}
-                                placeholder="e.g., Bench Press"
-                                placeholderTextColor="#6B7690"
-                                style={styles.input}
-                            />
-
-                            <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                                <Field
-                                    label="sets (optional)"
-                                    value={ex.sets}
-                                    placeholder="e.g., 3"
-                                    onChange={(t) => updateExercise(ex.id, { sets: digitsOnly(t) })}
-                                />
-
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.label}>reps per set</Text>
-                                    <TextInput
-                                        value={ex.repsPerSet}
-                                        onChangeText={(t) => updateExercise(ex.id, { repsPerSet: t })}
-                                        placeholder="e.g., 12,10,8"
-                                        placeholderTextColor="#6B7690"
-                                        style={styles.input}
-                                        autoCapitalize="none"
-                                    />
-                                </View>
-                            </View>
-
-                            <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                                <Field
-                                    label="weight (kg)"
-                                    value={ex.weight}
-                                    placeholder="0"
-                                    onChange={(t) => updateExercise(ex.id, { weight: numOnly(t) })}
-                                />
-                                <Field
-                                    label="duration (mins)"
-                                    value={ex.duration}
-                                    placeholder="10"
-                                    onChange={(t) => updateExercise(ex.id, { duration: digitsOnly(t) })}
-                                />
-                            </View>
-
-                            <Text style={[styles.label, { marginTop: 12 }]}>notes (optional)</Text>
-                            <TextInput
-                                value={ex.notes}
-                                onChangeText={(t) => updateExercise(ex.id, { notes: t })}
-                                placeholder="e.g., felt strong, increase weight next time"
-                                placeholderTextColor="#6B7690"
-                                style={[styles.input, { height: 90, paddingTop: 14 }]}
-                                multiline
-                            />
-                        </View>
-                    ))}
+                    {selectedWorkout && (
+                        <Text style={{ color: MUTED, marginTop: 10, fontSize: 12 }}>
+                            Based on {selectedWorkout.kcal_estimate ?? 0} kcal / {selectedWorkout.duration_mins ?? 0} mins from the
+                            workout library.
+                        </Text>
+                    )}
                 </View>
 
-                {/* Add exercise */}
-                <TouchableOpacity activeOpacity={0.9} style={[styles.secondaryBtn, { marginTop: 12 }]} onPress={addExercise}>
-                    <Ionicons name="add-circle-outline" size={18} color={ACCENT} />
-                    <Text style={styles.secondaryText}>Add Exercise</Text>
+                <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={[styles.primaryBtn, { marginTop: 12, opacity: saving ? 0.7 : 1 }]}
+                    onPress={saveWorkout}
+                    disabled={saving}
+                >
+                    <Text style={styles.primaryText}>{saving ? "Saving..." : "Save Workout"}</Text>
                 </TouchableOpacity>
-
-                {/* Save button */}
-                <TouchableOpacity activeOpacity={0.9} style={[styles.primaryBtn, { marginTop: 12 }]} onPress={saveWorkout}>
-                    <Text style={styles.primaryText}>Save Workout</Text>
-                </TouchableOpacity>
-
-                <Text style={{ color: MUTED, marginTop: 10, fontSize: 12 }}>
-                    Next step: connect this to Supabase so every workout is saved under the logged-in user.
-                </Text>
             </ScrollView>
         </View>
     );
 }
 
-/* ---------------- UI helpers ---------------- */
-
-function TypePill({ active, text, onPress }: { active: boolean; text: string; onPress: () => void }) {
-    return (
-        <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={onPress}
-            style={[
-                styles.pill,
-                {
-                    backgroundColor: active ? "rgba(255,77,45,0.14)" : "transparent",
-                    borderColor: active ? "rgba(255,77,45,0.35)" : BORDER,
-                },
-            ]}
-        >
-            <Text style={{ color: active ? "#FFD3CA" : MUTED, fontWeight: "900" as const, fontSize: 12 }}>{text}</Text>
-        </TouchableOpacity>
-    );
-}
-
-function MiniStat({ icon, label, value }: { icon: any; label: string; value: string }) {
+function MiniStat({ label, value }: { label: string; value: string }) {
     return (
         <View style={styles.miniStat}>
-            <Ionicons name={icon} size={16} color={ACCENT} />
-            <View style={{ marginLeft: 8 }}>
-                <Text style={{ color: MUTED, fontSize: 12 }}>{label}</Text>
-                <Text style={{ color: "white", fontWeight: "900" as const, marginTop: 2 }}>{value}</Text>
-            </View>
+            <Text style={{ color: MUTED, fontSize: 12 }}>{label}</Text>
+            <Text style={{ color: "white", fontWeight: "900", marginTop: 4 }}>{value}</Text>
         </View>
     );
 }
-
-function Field({
-    label,
-    value,
-    placeholder,
-    onChange,
-}: {
-    label: string;
-    value: string;
-    placeholder: string;
-    onChange: (t: string) => void;
-}) {
-    return (
-        <View style={{ flex: 1 }}>
-            <Text style={styles.label}>{label}</Text>
-            <TextInput
-                value={value}
-                onChangeText={onChange}
-                placeholder={placeholder}
-                placeholderTextColor="#6B7690"
-                keyboardType="numeric"
-                style={styles.input}
-            />
-        </View>
-    );
-}
-
-function parseRepsList(text: string) {
-    const cleaned = String(text || "").trim();
-    if (!cleaned) return [];
-
-    return cleaned
-        .split(/[\s,|]+/g)
-        .map((x) => x.trim())
-        .filter(Boolean)
-        .map((x) => Number(x))
-        .filter((n) => Number.isFinite(n) && n >= 0);
-}
-
-function digitsOnly(t: string) {
-    return t.replace(/\D/g, "");
-}
-function numOnly(t: string) {
-    return t.replace(/[^0-9.]/g, "");
-}
-function num(v: string) {
-    const n = Number(String(v || "").replace(",", "."));
-    return Number.isFinite(n) ? n : 0;
-}
-
-/* ---------------- Styles ---------------- */
 
 const styles = {
     headerRow: {
@@ -383,15 +272,6 @@ const styles = {
         borderWidth: 1,
         borderColor: BORDER,
     },
-
-    sectionTitle: {
-        fontSize: 18,
-        color: ACCENT,
-        fontWeight: "900" as const,
-        marginTop: 14,
-        marginBottom: 8,
-    },
-
     card: {
         borderRadius: 22,
         backgroundColor: CARD,
@@ -401,7 +281,6 @@ const styles = {
         marginTop: 20,
     },
     cardTitle: { color: "#AEB8CA", fontWeight: "900" as const, fontSize: 12, letterSpacing: 0.6 },
-
     label: {
         color: "#6B7690",
         fontWeight: "800" as const,
@@ -418,18 +297,16 @@ const styles = {
         borderWidth: 1.5,
         borderColor: ACCENT,
     },
-
-    pill: {
-        flex: 1,
-        height: 40,
+    readonlyBox: {
+        minHeight: 54,
         borderRadius: 14,
-        borderWidth: 1,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
+        paddingHorizontal: 14,
+        paddingVertical: 16,
+        borderWidth: 1.5,
+        borderColor: BORDER,
+        backgroundColor: "rgba(255,255,255,0.04)",
     },
-
-    miniStat: {
-        width: "48%" as const,
+    workoutRow: {
         borderRadius: 16,
         borderWidth: 1,
         borderColor: BORDER,
@@ -437,39 +314,26 @@ const styles = {
         padding: 12,
         flexDirection: "row" as const,
         alignItems: "center" as const,
+        gap: 10,
     },
-
-    exerciseCard: {
-        borderRadius: 22,
-        backgroundColor: CARD,
-        padding: 14,
+    workoutTitle: {
+        color: "white",
+        fontWeight: "900" as const,
+        fontSize: 14,
+    },
+    workoutMeta: {
+        color: MUTED,
+        fontSize: 12,
+        marginTop: 4,
+    },
+    miniStat: {
+        flex: 1,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: BORDER,
+        backgroundColor: "rgba(255,255,255,0.04)",
+        padding: 12,
     },
-    trashBtn: {
-        width: 40,
-        height: 36,
-        borderRadius: 14,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        backgroundColor: "rgba(255,77,45,0.14)",
-        borderWidth: 1,
-        borderColor: "rgba(255,77,45,0.25)",
-    },
-
-    secondaryBtn: {
-        height: 56,
-        borderRadius: 999,
-        backgroundColor: "transparent",
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        flexDirection: "row" as const,
-        gap: 10,
-        borderWidth: 1.5,
-        borderColor: ACCENT,
-    },
-    secondaryText: { color: "#FFD3CA", fontWeight: "900" as const, fontSize: 14 },
-
     primaryBtn: {
         height: 56,
         borderRadius: 999,

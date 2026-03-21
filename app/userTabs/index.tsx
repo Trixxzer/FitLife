@@ -37,10 +37,8 @@ export default function Home() {
   // extra useful homepage items
   const extras = useMemo(
     () => [
-      { icon: "water-outline", label: "Water", value: "1.2L / 3L" },
-      { icon: "walk-outline", label: "Steps", value: "5,430" },
+      { icon: "walk-outline", label: "Exercise Mins", value: "20 mins" },
       { icon: "flame-outline", label: "Streak", value: "4 days" },
-      { icon: "moon-outline", label: "Sleep", value: "6h 40m" },
     ],
     []
   );
@@ -55,7 +53,7 @@ export default function Home() {
             <Text style={styles.welcome}>Welcome to FitLife</Text>
           </View>
 
-          <TouchableOpacity activeOpacity={0.9} style={styles.avatar} onPress={() => router.push("/settings")}>
+          <TouchableOpacity activeOpacity={0.9} style={styles.avatar} onPress={() => router.push("/userTabs/settings")}>
             {/* Replace with Image later */}
           </TouchableOpacity>
         </View>
@@ -90,13 +88,6 @@ export default function Home() {
               <MacroRow label="Fat" value={macros.fat.value} max={macros.fat.max} />
             </View>
           </View>
-
-          {/* Quick actions (useful on homepage) */}
-          {/* <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
-            <ActionPill icon="add-circle-outline" text="Log meal" />
-            <ActionPill icon="barbell-outline" text="Start workout" />
-            <ActionPill icon="scan-outline" text="Scan food" />
-          </View> */}
         </View>
 
         {/* 2-up cards (Trainer + Exercise) */}
@@ -184,27 +175,6 @@ export default function Home() {
 
           <View style={styles.weightPlaceholder}>
             <Text style={{ color: "#9AA6BD", fontWeight: "800" }}>Add your weight to see your progress chart</Text>
-          </View>
-        </View>
-
-        {/* Upcoming (needed on a fitness homepage) */}
-        <View style={[styles.card, { marginTop: 12 }]}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={styles.cardTitle}>UP NEXT</Text>
-            <TouchableOpacity activeOpacity={0.9}>
-              <Text style={{ color: "#9AA6BD", fontWeight: "800" }}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.nextRow}>
-            <View style={styles.nextIcon}>
-              <Ionicons name="barbell-outline" size={18} color="white" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "white", fontWeight: "900" }}>Upper body — 25 mins</Text>
-              <Text style={{ color: "#9AA6BD", fontSize: 12, marginTop: 2 }}>Starts in 45 mins • Home</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#9AA6BD" />
           </View>
         </View>
       </ScrollView>
