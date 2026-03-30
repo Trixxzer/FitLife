@@ -31,7 +31,9 @@ export default function Home() {
 
   const loadData = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const todayStart = new Date();
@@ -83,8 +85,14 @@ export default function Home() {
         .lte("created_at", endISO);
 
       if (workouts) {
-        const mins = workouts.reduce((s, w) => s + (w.total_duration_mins || 0), 0);
-        const burned = workouts.reduce((s, w) => s + (w.calories_burned || 0), 0);
+        const mins = workouts.reduce(
+          (s, w) => s + (w.total_duration_mins || 0),
+          0,
+        );
+        const burned = workouts.reduce(
+          (s, w) => s + (w.calories_burned || 0),
+          0,
+        );
 
         setExerciseMins(mins);
         setExerciseCalories(burned);
@@ -109,7 +117,6 @@ export default function Home() {
       } else {
         setTrainerName(null);
       }
-
     } catch (e) {
       console.log("Home error:", e);
     } finally {
@@ -121,12 +128,19 @@ export default function Home() {
     useCallback(() => {
       setLoading(true);
       loadData();
-    }, [loadData])
+    }, [loadData]),
   );
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0B0F1A", justifyContent: "center", alignItems: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#0B0F1A",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator color="#FF4D2D" />
       </View>
     );
@@ -137,7 +151,6 @@ export default function Home() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: "#0B0F1A", padding: 16 }}>
-
       <Text style={{ color: "#FF4D2D", fontSize: 20, fontWeight: "900" }}>
         Hello, {userName}
       </Text>
@@ -150,9 +163,7 @@ export default function Home() {
         {remaining} kcal remaining
       </Text>
 
-      <Text style={{ color: "#9AA6BD" }}>
-        Food logs: {foodCount}
-      </Text>
+      <Text style={{ color: "#9AA6BD" }}>Food logs: {foodCount}</Text>
 
       <Text style={{ color: "#9AA6BD" }}>
         Exercise: {exerciseMins} mins / {exerciseCalories} kcal
@@ -171,9 +182,7 @@ export default function Home() {
           borderRadius: 10,
         }}
       >
-        <Text style={{ color: "white", fontWeight: "900" }}>
-          Go to Trainer
-        </Text>
+        <Text style={{ color: "white", fontWeight: "900" }}>Go to Trainer</Text>
       </TouchableOpacity>
     </ScrollView>
   );

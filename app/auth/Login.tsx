@@ -1,5 +1,4 @@
 // app/auth/Login.tsx
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -81,14 +80,18 @@ export default function Login() {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        contentContainerStyle={{
+          padding: 20,
+          paddingBottom: 40,
+          paddingTop: 40,
+        }}
         keyboardShouldPersistTaps="handled"
       >
         {/* Header row (Back + Title) */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backBtn}>
             <Ionicons name="arrow-back-outline" size={25} color="white" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <Text style={styles.headerTitle} pointerEvents="none">
             FitLife
@@ -164,6 +167,24 @@ export default function Login() {
             <Text style={{ color: "#FFD3CA", fontWeight: "900" }}>Create an account</Text>
           </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          onPress={() => router.push("/auth/adminlogin")}
+          activeOpacity={0.85}
+          style={{
+            marginTop: 50,
+            alignItems: "center",
+          }}
+        >
+          <Text
+            style={{
+              color: "#9AA6BD",
+              fontWeight: "800",
+              fontSize: 13,
+            }}
+          >
+            Admin login
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
