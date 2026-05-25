@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is required for video calls with your trainer",
-        "NSMicrophoneUsageDescription": "Microphone access is required for video calls with your trainer"
+        "NSMicrophoneUsageDescription": "Microphone access is required for video calls with your trainer",
+        "NSUserNotificationUsageDescription": "We use notifications to remind you to log meals and workouts."
       }
     },
     "android": {
@@ -27,8 +28,7 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "com.gushiii.FitLife"
     },

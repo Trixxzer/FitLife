@@ -10,6 +10,8 @@ export default function WorkoutStackLayout() {
             <Stack.Screen name="challenges" />
             <Stack.Screen name="pushup" />
             <Stack.Screen name="leaderboard" />
+            <Stack.Screen name="gamification" />
+            <Stack.Screen name="day-leaderboard" />
             <Stack.Screen name="details" />
         </Stack>
     );

@@ -166,8 +166,15 @@ export default function WorkoutHome() {
         <ActionCard
           icon="trophy-outline"
           title="Challenges"
-          subtitle="Push-up challenge & leaderboard"
+          subtitle="Push-up challenge & squat leaderboard"
           onPress={() => router.push("/userTabs/workout/challenges")}
+        />
+
+        <ActionCard
+          icon="medal-outline"
+          title="Rewards"
+          subtitle="Streaks, badges, and squat leaderboard"
+          onPress={() => router.push("/userTabs/workout/gamification")}
         />
       </ScrollView>
     </View>

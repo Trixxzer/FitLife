@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
@@ -55,6 +55,28 @@ export default function WorkoutHistory() {
             console.log("loadHistory error", e);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function deleteWorkout(logId: string) {
+        try {
+            const {
+                data: { user },
+                error: userErr,
+            } = await supabase.auth.getUser();
+
+            if (userErr) throw userErr;
+
+            const { error } = await supabase.from("workout_logs").delete().eq("id", logId);
+            if (error) throw error;
+            setLogs((prev) => prev.filter((log) => log.id !== logId));
+
+            if (user?.id) {
+                const { error: badgeErr } = await supabase.rpc("check_and_award_badges", { p_user_id: user.id });
+                if (badgeErr) console.log("check_and_award_badges error", badgeErr.message);
+            }
+        } catch (e: any) {
+            Alert.alert("Delete failed", e?.message || "Could not delete workout.");
         }
     }
 
@@ -115,6 +137,19 @@ export default function WorkoutHistory() {
                                                     ⏱ {log.total_duration_mins} mins   •   🔥 {log.calories_burned} kcal   •   💪 {log.total_sets} sets
                                                 </Text>
                                             </View>
+
+                                            <TouchableOpacity
+                                                activeOpacity={0.9}
+                                                style={styles.trashBtn}
+                                                onPress={() =>
+                                                    Alert.alert("Delete workout?", "This cannot be undone.", [
+                                                        { text: "Cancel", style: "cancel" },
+                                                        { text: "Delete", style: "destructive", onPress: () => deleteWorkout(log.id) },
+                                                    ])
+                                                }
+                                            >
+                                                <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+                                            </TouchableOpacity>
                                         </View>
                                     </View>
                                 ))}
@@ -207,5 +242,15 @@ const styles = {
         fontSize: 12,
         marginTop: 4,
         opacity: 0.9,
+    },
+    trashBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: "center" as const,
+        justifyContent: "center" as const,
+        backgroundColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        borderColor: BORDER,
     },
 };
