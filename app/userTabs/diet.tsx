@@ -134,10 +134,18 @@ export default function Diet() {
   }
 
   async function loadDietLogs(uid: string) {
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
     const { data, error } = await supabase
       .from("diet_logs")
       .select("*")
       .eq("user_id", uid)
+      .gte("created_at", startOfDay.toISOString())
+      .lt("created_at", endOfDay.toISOString())
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -212,6 +220,11 @@ export default function Diet() {
       });
 
       setIsSearchOpen(false);
+
+      if (userId) {
+        const { error: badgeErr } = await supabase.rpc("check_and_award_badges", { p_user_id: userId });
+        if (badgeErr) console.log("check_and_award_badges error", badgeErr.message);
+      }
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to add food.");
     } finally {

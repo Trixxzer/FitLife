@@ -21,7 +21,7 @@ import {
     View,
 >>>>>>> 8f2912f (Expo go version)
 } from "react-native";
-import { getPublicStorageFileUrl, openStorageFile, TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
+import { openStorageFile, TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
 import { supabase } from "../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
@@ -407,28 +407,22 @@ export default function AdminPage() {
                     Applied: {new Date(app.created_at).toLocaleString()}
                   </Text>
 
-                  {app.photo_path && (
-                    <View style={{ marginTop: 14 }}>
-                      <Image
-                        source={{
-                          uri: getPublicStorageFileUrl(
-                            TRAINER_UPLOADS_BUCKET,
-                            app.photo_path,
-                            app.user_id,
-                          ),
-                        }}
-                        style={{
-                          width: "100%",
-                          height: 220,
-                          borderRadius: 14,
-                          backgroundColor: CARD,
-                        }}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  )}
-
                   <View style={styles.fileRow}>
+                    <TouchableOpacity
+                      style={styles.fileBtn}
+                      activeOpacity={0.9}
+                      onPress={() =>
+                        openStorageFile(
+                          TRAINER_UPLOADS_BUCKET,
+                          app.photo_path,
+                          app.user_id,
+                        )
+                      }
+                    >
+                      <Ionicons name="image-outline" size={18} color={ACCENT} />
+                      <Text style={styles.fileText}>Photo</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                       style={styles.fileBtn}
                       activeOpacity={0.9}

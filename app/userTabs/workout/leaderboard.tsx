@@ -9,8 +9,11 @@ const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
 type Row = {
+    rank: number;
     name: string;
-    score: number;
+    bestScore: number;
+    averageScore: number;
+    totalAttempts: number;
 };
 
 export default function Leaderboard() {
@@ -26,18 +29,20 @@ export default function Leaderboard() {
             setLoading(true);
 
             const { data, error } = await supabase
-                .from("challenge_scores")
-                .select("score,user_id")
-                .eq("challenge_key", "pushup_60s")
-                .order("score", { ascending: false })
+                .from("squat_leaderboard_with_users")
+                .select("rank,user_name,best_score,average_score,total_attempts")
+                .order("rank", { ascending: true })
                 .limit(20);
 
             if (error) throw error;
 
             const mapped =
                 (data || []).map((r: any, idx: number) => ({
-                    name: `User ${idx + 1}`,
-                    score: r.score,
+                    rank: Number(r.rank || idx + 1),
+                    name: r.user_name || `User ${idx + 1}`,
+                    bestScore: Number(r.best_score || 0),
+                    averageScore: Number(r.average_score || 0),
+                    totalAttempts: Number(r.total_attempts || 0),
                 })) || [];
 
             setRows(mapped);
@@ -54,7 +59,7 @@ export default function Leaderboard() {
                 <View style={styles.headerCard}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.hello}>Leaderboard</Text>
-                        <Text style={styles.welcome}>Push-up Challenge • Top performers</Text>
+                        <Text style={styles.welcome}>Squat Challenge • Top performers</Text>
                     </View>
 
                     <View style={styles.iconBtn}>
@@ -76,9 +81,12 @@ export default function Leaderboard() {
                     ) : (
                         rows.map((r, idx) => (
                             <View key={`${r.name}-${idx}`} style={styles.row}>
-                                <Text style={styles.rank}>{idx + 1}</Text>
-                                <Text style={styles.name}>{r.name}</Text>
-                                <Text style={styles.score}>{r.score} reps</Text>
+                                <Text style={styles.rank}>{r.rank || idx + 1}</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.name}>{r.name}</Text>
+                                    <Text style={styles.meta}>Avg {r.averageScore} • {r.totalAttempts} attempts</Text>
+                                </View>
+                                <Text style={styles.score}>{r.bestScore} reps</Text>
                             </View>
                         ))
                     )}
@@ -134,4 +142,5 @@ const styles = {
     rank: { color: ACCENT, fontWeight: "900" as const, width: 26 },
     name: { color: "white", fontWeight: "900" as const, flex: 1 },
     score: { color: "#C7CFDD", fontWeight: "900" as const },
+    meta: { color: MUTED, fontSize: 11, marginTop: 2 },
 };

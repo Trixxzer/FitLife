@@ -1,18 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { supabase } from "../lib/supabase";
+import {
+  applyReminderSet,
+  formatReminderTime,
+  getReminderSet,
+  type ReminderSet,
+  type ReminderTime,
+  type ReminderType,
+} from "../lib/reminders";
 
 type ItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -78,11 +87,39 @@ export default function Settings() {
 
   const [phoneModalVisible, setPhoneModalVisible] = useState(false);
 
+  const [reminderLoading, setReminderLoading] = useState(true);
+  const [mealReminder, setMealReminder] = useState<ReminderSet>({
+    enabled: false,
+    times: [],
+  });
+  const [workoutReminder, setWorkoutReminder] = useState<ReminderSet>({
+    enabled: false,
+    times: [],
+  });
+
   useFocusEffect(
     useCallback(() => {
       loadProfile();
     }, []),
   );
+
+  useEffect(() => {
+    const loadReminders = async () => {
+      try {
+        setReminderLoading(true);
+        const [mealState, workoutState] = await Promise.all([
+          getReminderSet("meal"),
+          getReminderSet("workout"),
+        ]);
+        setMealReminder(mealState);
+        setWorkoutReminder(workoutState);
+      } finally {
+        setReminderLoading(false);
+      }
+    };
+
+    loadReminders();
+  }, []);
 
   async function loadProfile() {
     try {
@@ -227,6 +264,110 @@ export default function Settings() {
   const notReady = () =>
     Alert.alert("Coming soon", "We’ll connect this screen next.");
 
+  const applyReminderSafe = async (
+    type: ReminderType,
+    next: ReminderSet,
+  ) => {
+    try {
+      await applyReminderSet(type, next);
+    } catch (e: any) {
+      Alert.alert("Reminder error", e?.message || "Failed to update reminder.");
+      throw e;
+    }
+  };
+
+  async function toggleReminder(type: ReminderType, next: boolean) {
+    if (type === "meal") {
+      const updated = { ...mealReminder, enabled: next };
+      setMealReminder(updated);
+      try {
+        await applyReminderSafe("meal", updated);
+      } catch {
+        setMealReminder((prev) => ({ ...prev, enabled: !next }));
+      }
+    } else {
+      const updated = { ...workoutReminder, enabled: next };
+      setWorkoutReminder(updated);
+      try {
+        await applyReminderSafe("workout", updated);
+      } catch {
+        setWorkoutReminder((prev) => ({ ...prev, enabled: !next }));
+      }
+    }
+  }
+
+  async function shiftReminderTime(
+    type: ReminderType,
+    index: number,
+    deltaMinutes: number,
+  ) {
+    const target = type === "meal" ? mealReminder : workoutReminder;
+    const times = [...target.times];
+    const time = times[index];
+    if (!time) return;
+
+    const total = time.hour * 60 + time.minute + deltaMinutes;
+    const nextTotal = (total + 24 * 60) % (24 * 60);
+    const nextHour = Math.floor(nextTotal / 60);
+    const nextMinute = nextTotal % 60;
+
+    times[index] = { ...time, hour: nextHour, minute: nextMinute };
+
+    const updated: ReminderSet = {
+      enabled: target.enabled,
+      times,
+    };
+
+    if (type === "meal") {
+      setMealReminder(updated);
+      await applyReminderSafe("meal", updated);
+    } else {
+      setWorkoutReminder(updated);
+      await applyReminderSafe("workout", updated);
+    }
+  }
+
+  async function addReminderTime(type: ReminderType) {
+    const target = type === "meal" ? mealReminder : workoutReminder;
+    const base = target.times[target.times.length - 1];
+    const nextTime: ReminderTime = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      hour: base ? (base.hour + 1) % 24 : 12,
+      minute: base ? base.minute : 0,
+    };
+
+    const updated: ReminderSet = {
+      enabled: target.enabled,
+      times: [...target.times, nextTime],
+    };
+
+    if (type === "meal") {
+      setMealReminder(updated);
+      await applyReminderSafe("meal", updated);
+    } else {
+      setWorkoutReminder(updated);
+      await applyReminderSafe("workout", updated);
+    }
+  }
+
+  async function removeReminderTime(type: ReminderType, index: number) {
+    const target = type === "meal" ? mealReminder : workoutReminder;
+    if (target.times.length <= 1) return;
+
+    const updated: ReminderSet = {
+      enabled: target.enabled,
+      times: target.times.filter((_, i) => i !== index),
+    };
+
+    if (type === "meal") {
+      setMealReminder(updated);
+      await applyReminderSafe("meal", updated);
+    } else {
+      setWorkoutReminder(updated);
+      await applyReminderSafe("workout", updated);
+    }
+  }
+
   const displayName = profile?.first_name || "No name set";
   const profileSubtitle = [displayName, email].filter(Boolean).join(" • ");
 
@@ -341,6 +482,143 @@ export default function Settings() {
               }
               onPress={notReady}
             />
+
+            <Text style={styles.section}>Reminders</Text>
+            <View style={styles.reminderCard}>
+              <View style={styles.reminderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.reminderTitle}>Meal reminders</Text>
+                  <Text style={styles.reminderSub}>Daily alerts</Text>
+                </View>
+                <Switch
+                  value={mealReminder.enabled}
+                  onValueChange={(next) => toggleReminder("meal", next)}
+                  thumbColor={mealReminder.enabled ? "#FF4D2D" : "#68758E"}
+                  trackColor={{ false: "#2A3550", true: "#3B1F1A" }}
+                  disabled={reminderLoading}
+                />
+              </View>
+
+              {mealReminder.times.map((t, idx) => (
+                <View key={t.id} style={styles.timeRow}>
+                  <Text style={styles.timeLabel}>{formatReminderTime(t.hour, t.minute)}</Text>
+                  <View style={styles.timeActionsRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.timeBtn}
+                      onPress={() => shiftReminderTime("meal", idx, -30)}
+                      disabled={reminderLoading}
+                    >
+                      <Text style={styles.timeBtnText}>-30m</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.timeBtn}
+                      onPress={() => shiftReminderTime("meal", idx, 30)}
+                      disabled={reminderLoading}
+                    >
+                      <Text style={styles.timeBtnText}>+30m</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.timeBtn}
+                      onPress={() => shiftReminderTime("meal", idx, 60)}
+                      disabled={reminderLoading}
+                    >
+                      <Text style={styles.timeBtnText}>+1h</Text>
+                    </TouchableOpacity>
+                    {mealReminder.times.length > 1 && (
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.removeBtn}
+                        onPress={() => removeReminderTime("meal", idx)}
+                        disabled={reminderLoading}
+                      >
+                        <Ionicons name="close" size={14} color="#FF6B6B" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))}
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.addTimeBtn}
+                onPress={() => addReminderTime("meal")}
+                disabled={reminderLoading}
+              >
+                <Ionicons name="add" size={16} color="white" />
+                <Text style={styles.addTimeText}>Add time</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.reminderCard}>
+              <View style={styles.reminderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.reminderTitle}>Workout reminders</Text>
+                  <Text style={styles.reminderSub}>Daily alerts</Text>
+                </View>
+                <Switch
+                  value={workoutReminder.enabled}
+                  onValueChange={(next) => toggleReminder("workout", next)}
+                  thumbColor={workoutReminder.enabled ? "#FF4D2D" : "#68758E"}
+                  trackColor={{ false: "#2A3550", true: "#3B1F1A" }}
+                  disabled={reminderLoading}
+                />
+              </View>
+
+              {workoutReminder.times.map((t, idx) => (
+                <View key={t.id} style={styles.timeRow}>
+                  <Text style={styles.timeLabel}>{formatReminderTime(t.hour, t.minute)}</Text>
+                  <View style={styles.timeActionsRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.timeBtn}
+                      onPress={() => shiftReminderTime("workout", idx, -30)}
+                      disabled={reminderLoading}
+                    >
+                      <Text style={styles.timeBtnText}>-30m</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.timeBtn}
+                      onPress={() => shiftReminderTime("workout", idx, 30)}
+                      disabled={reminderLoading}
+                    >
+                      <Text style={styles.timeBtnText}>+30m</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.timeBtn}
+                      onPress={() => shiftReminderTime("workout", idx, 60)}
+                      disabled={reminderLoading}
+                    >
+                      <Text style={styles.timeBtnText}>+1h</Text>
+                    </TouchableOpacity>
+                    {workoutReminder.times.length > 1 && (
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.removeBtn}
+                        onPress={() => removeReminderTime("workout", idx)}
+                        disabled={reminderLoading}
+                      >
+                        <Ionicons name="close" size={14} color="#FF6B6B" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))}
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.addTimeBtn}
+                onPress={() => addReminderTime("workout")}
+                disabled={reminderLoading}
+              >
+                <Ionicons name="add" size={16} color="white" />
+                <Text style={styles.addTimeText}>Add time</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
@@ -676,5 +954,94 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: "white",
     fontWeight: "900",
+  },
+  reminderCard: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: "#0F1627",
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+    marginBottom: 12,
+  },
+  reminderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  reminderTitle: {
+    color: "white",
+    fontWeight: "900",
+    fontSize: 14,
+  },
+  reminderSub: {
+    color: "#9AA6BD",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  reminderActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  timeRow: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+    backgroundColor: "#111A2C",
+  },
+  timeLabel: {
+    color: "white",
+    fontWeight: "900",
+    fontSize: 14,
+  },
+  timeActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  timeBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#2A3550",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#111A2C",
+  },
+  timeBtnText: {
+    color: "#C7D0E0",
+    fontWeight: "800",
+    fontSize: 12,
+  },
+  addTimeBtn: {
+    marginTop: 12,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,77,45,0.35)",
+    backgroundColor: "rgba(255,77,45,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  addTimeText: {
+    color: "#FFD3CA",
+    fontWeight: "900",
+    fontSize: 13,
+  },
+  removeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#2A3550",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
 });
