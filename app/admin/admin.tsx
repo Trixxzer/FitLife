@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+<<<<<<< HEAD
   ActivityIndicator,
   Alert,
   RefreshControl,
@@ -9,8 +10,18 @@ import {
   Text,
   TouchableOpacity,
   View,
+=======
+    ActivityIndicator,
+    Alert,
+    Image,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
+>>>>>>> 8f2912f (Expo go version)
 } from "react-native";
-import { openStorageFile, TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
+import { getPublicStorageFileUrl, openStorageFile, TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
 import { supabase } from "../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
@@ -396,22 +407,28 @@ export default function AdminPage() {
                     Applied: {new Date(app.created_at).toLocaleString()}
                   </Text>
 
-                  <View style={styles.fileRow}>
-                    <TouchableOpacity
-                      style={styles.fileBtn}
-                      activeOpacity={0.9}
-                      onPress={() =>
-                        openStorageFile(
-                          TRAINER_UPLOADS_BUCKET,
-                          app.photo_path,
-                          app.user_id,
-                        )
-                      }
-                    >
-                      <Ionicons name="image-outline" size={18} color={ACCENT} />
-                      <Text style={styles.fileText}>Photo</Text>
-                    </TouchableOpacity>
+                  {app.photo_path && (
+                    <View style={{ marginTop: 14 }}>
+                      <Image
+                        source={{
+                          uri: getPublicStorageFileUrl(
+                            TRAINER_UPLOADS_BUCKET,
+                            app.photo_path,
+                            app.user_id,
+                          ),
+                        }}
+                        style={{
+                          width: "100%",
+                          height: 220,
+                          borderRadius: 14,
+                          backgroundColor: CARD,
+                        }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  )}
 
+                  <View style={styles.fileRow}>
                     <TouchableOpacity
                       style={styles.fileBtn}
                       activeOpacity={0.9}

@@ -128,7 +128,7 @@ export default function TrainerHome() {
                                 ? "Message your trainer(s)"
                                 : "Chat will be available after a trainer is approved"
                         }
-                        onPress={() => { }}
+                        onPress={() => router.push("/userTabs/trainer/chats")}
                     />)}
             </ScrollView>
         </View>

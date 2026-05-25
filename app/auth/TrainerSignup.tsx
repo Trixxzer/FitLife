@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { router, useNavigation } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -30,6 +31,8 @@ export default function TrainerSignup() {
 
   // ✅ Auth
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Trainer fields
   const [fullName, setFullName] = useState("");
@@ -52,23 +55,88 @@ export default function TrainerSignup() {
   const isValid = useMemo(() => {
     const cleanEmail = email.trim().toLowerCase();
     const emailOk = /^\S+@\S+\.\S+$/.test(cleanEmail);
+    const passwordOk = password.length >= 8 && password === confirmPassword;
 
     const a = Number(age);
     const y = Number(certYear);
     const nameOk = fullName.trim().length >= 3;
     const ageOk = Number.isFinite(a) && a >= 18 && a <= 80;
-    const certOk = certTitle.trim().length >= 2 && certIssuer.trim().length >= 2;
-    const yearOk = certYear.trim() ? Number.isFinite(y) && y >= 1980 && y <= 2100 : true;
+    const certOk =
+      certTitle.trim().length >= 2 && certIssuer.trim().length >= 2;
+    const yearOk = certYear.trim()
+      ? Number.isFinite(y) && y >= 1980 && y <= 2100
+      : true;
 
     const uploadsOk = !!photoUri && !!certificateUri;
-    return emailOk && nameOk && ageOk && certOk && yearOk && uploadsOk;
-  }, [email, fullName, age, certTitle, certIssuer, certYear, photoUri, certificateUri]);
+    return (
+      emailOk && passwordOk && nameOk && ageOk && certOk && yearOk && uploadsOk
+    );
+  }, [
+    email,
+    password,
+    confirmPassword,
+    fullName,
+    age,
+    certTitle,
+    certIssuer,
+    certYear,
+    photoUri,
+    certificateUri,
+  ]);
+
+  const uriToArrayBuffer = async (uri: string) => {
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: "base64",
+    });
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    return bytes.buffer;
+  };
+
+  const extFromName = (name: string) => {
+    const parts = name.split(".");
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  };
+
+  const contentTypeFromName = (name: string, fallback: string) => {
+    const ext = extFromName(name);
+    if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+    if (ext === "png") return "image/png";
+    if (ext === "webp") return "image/webp";
+    if (ext === "pdf") return "application/pdf";
+    return fallback;
+  };
+
+  const uploadToSupabase = async (params: {
+    bucket: string;
+    path: string;
+    uri: string;
+    contentType: string;
+  }) => {
+    const arrayBuffer = await uriToArrayBuffer(params.uri);
+    const { error } = await supabase.storage
+      .from(params.bucket)
+      .upload(params.path, arrayBuffer, {
+        contentType: params.contentType,
+        upsert: true,
+      });
+    if (error) throw error;
+    return params.path;
+  };
 
   const pickPhoto = async () => {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert("Permission needed", "Please allow photo access to upload a photo.");
+        Alert.alert(
+          "Permission needed",
+          "Please allow photo access to upload a photo.",
+        );
         return;
       }
 
@@ -112,7 +180,10 @@ export default function TrainerSignup() {
 
   const submit = async () => {
     if (!isValid) {
-      Alert.alert("Please complete the form", "Add valid details, photo + certificate.");
+      Alert.alert(
+        "Please complete the form",
+        "Add valid details, photo + certificate.",
+      );
       return;
     }
 
@@ -120,12 +191,9 @@ export default function TrainerSignup() {
     try {
       const cleanEmail = email.trim().toLowerCase();
 
-      // ✅ Send OTP for trainer
-      const { error } = await supabase.auth.signInWithOtp({
+      const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
-        options: {
-          shouldCreateUser: true,
-        },
+        password: password.trim(),
       });
 
       if (error) throw error;
@@ -156,6 +224,10 @@ export default function TrainerSignup() {
           certificateName: certificateName ?? "certificate.pdf",
         },
       });
+
+      if (appErr) throw appErr;
+
+      router.replace("/trainerTabs/pending");
     } catch (e: any) {
       Alert.alert("Something went wrong", e?.message || "Please try again.");
     } finally {
@@ -175,7 +247,11 @@ export default function TrainerSignup() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.85}
+            style={styles.backBtn}
+          >
             <Ionicons name="arrow-back-outline" size={25} color="white" />
           </TouchableOpacity>
 
@@ -208,6 +284,30 @@ export default function TrainerSignup() {
             keyboardType="email-address"
           />
 
+          <Text style={[styles.label, { marginTop: 16 }]}>password</Text>
+          <TextInput
+            placeholder="Create password (min 8 chars)"
+            placeholderTextColor="#6B7690"
+            value={password}
+            onChangeText={setPassword}
+            style={styles.input}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+
+          <Text style={[styles.label, { marginTop: 16 }]}>
+            confirm password
+          </Text>
+          <TextInput
+            placeholder="Confirm password"
+            placeholderTextColor="#6B7690"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            style={styles.input}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+
           <Text style={[styles.label, { marginTop: 16 }]}>full name</Text>
           <TextInput
             placeholder="e.g., Alex Johnson"
@@ -221,9 +321,22 @@ export default function TrainerSignup() {
           <Text style={[styles.label, { marginTop: 16 }]}>gender</Text>
           <View style={{ gap: 12 }}>
             <View style={{ flexDirection: "row", gap: 12 }}>
-              <Pill active={gender === "male"} text="Male" onPress={() => setGender("male")} />
-              <Pill active={gender === "female"} text="Female" onPress={() => setGender("female")} />
-              <Pill active={gender === "na"} text="Others" onPress={() => setGender("na")} full />
+              <Pill
+                active={gender === "male"}
+                text="Male"
+                onPress={() => setGender("male")}
+              />
+              <Pill
+                active={gender === "female"}
+                text="Female"
+                onPress={() => setGender("female")}
+              />
+              <Pill
+                active={gender === "na"}
+                text="Others"
+                onPress={() => setGender("na")}
+                full
+              />
             </View>
           </View>
 
@@ -239,13 +352,21 @@ export default function TrainerSignup() {
           <Text style={styles.helper}>Minimum age: 18</Text>
 
           <Text style={[styles.label, { marginTop: 16 }]}>profile photo</Text>
-          <TouchableOpacity onPress={pickPhoto} activeOpacity={0.9} style={styles.uploadBtn}>
+          <TouchableOpacity
+            onPress={pickPhoto}
+            activeOpacity={0.9}
+            style={styles.uploadBtn}
+          >
             <Ionicons name="image-outline" size={20} color="#D7DEEA" />
-            <Text style={styles.uploadText}>{photoName ? photoName : "Upload photo"}</Text>
+            <Text style={styles.uploadText}>
+              {photoName ? photoName : "Upload photo"}
+            </Text>
             <Ionicons name="cloud-upload-outline" size={18} color="#9AA6BD" />
           </TouchableOpacity>
 
-          <Text style={[styles.label, { marginTop: 16 }]}>trainer certification</Text>
+          <Text style={[styles.label, { marginTop: 16 }]}>
+            trainer certification
+          </Text>
           <TextInput
             placeholder="Certification title (e.g., NASM CPT)"
             placeholderTextColor="#6B7690"
@@ -254,7 +375,9 @@ export default function TrainerSignup() {
             style={styles.input}
           />
 
-          <Text style={[styles.label, { marginTop: 16 }]}>certification issuer</Text>
+          <Text style={[styles.label, { marginTop: 16 }]}>
+            certification issuer
+          </Text>
           <TextInput
             placeholder="Issuer (e.g., NASM, ACE, ISSA)"
             placeholderTextColor="#6B7690"
@@ -263,7 +386,9 @@ export default function TrainerSignup() {
             style={styles.input}
           />
 
-          <Text style={[styles.label, { marginTop: 16 }]}>certification year (optional)</Text>
+          <Text style={[styles.label, { marginTop: 16 }]}>
+            certification year (optional)
+          </Text>
           <TextInput
             placeholder="e.g., 2024"
             placeholderTextColor="#6B7690"
@@ -273,22 +398,35 @@ export default function TrainerSignup() {
             keyboardType="numeric"
           />
 
-          <Text style={[styles.label, { marginTop: 16 }]}>upload certificate</Text>
-          <TouchableOpacity onPress={pickCertificate} activeOpacity={0.9} style={styles.uploadBtn}>
+          <Text style={[styles.label, { marginTop: 16 }]}>
+            upload certificate
+          </Text>
+          <TouchableOpacity
+            onPress={pickCertificate}
+            activeOpacity={0.9}
+            style={styles.uploadBtn}
+          >
             <Ionicons name="document-outline" size={20} color="#D7DEEA" />
             <Text style={styles.uploadText}>
-              {certificateName ? certificateName : "Upload certificate (PDF/Image)"}
+              {certificateName
+                ? certificateName
+                : "Upload certificate (PDF/Image)"}
             </Text>
             <Ionicons name="cloud-upload-outline" size={18} color="#9AA6BD" />
           </TouchableOpacity>
 
-          <Text style={[styles.label, { marginTop: 16 }]}>short bio (optional)</Text>
+          <Text style={[styles.label, { marginTop: 16 }]}>
+            short bio (optional)
+          </Text>
           <TextInput
             placeholder="Tell users what you specialize in..."
             placeholderTextColor="#6B7690"
             value={bio}
             onChangeText={setBio}
-            style={[styles.input, { height: 110, textAlignVertical: "top", paddingTop: 14 }]}
+            style={[
+              styles.input,
+              { height: 110, textAlignVertical: "top", paddingTop: 14 },
+            ]}
             multiline
           />
         </View>
@@ -309,14 +447,14 @@ export default function TrainerSignup() {
             <ActivityIndicator />
           ) : (
             <Text style={{ color: "white", fontSize: 16, fontWeight: "900" }}>
-              Send OTP →
+              Submit →
             </Text>
           )}
         </TouchableOpacity>
 
         {!isValid && (
           <Text style={[styles.helper, { marginTop: 10, textAlign: "center" }]}>
-            Enter email + upload photo & certificate to continue.
+            Enter email, password, and upload photo & certificate to continue.
           </Text>
         )}
       </View>
@@ -348,7 +486,11 @@ function Pill({
         },
       ]}
     >
-      <Text style={{ color: active ? "#FFD3CA" : "#D7DEEA", fontWeight: "900" }}>{text}</Text>
+      <Text
+        style={{ color: active ? "#FFD3CA" : "#D7DEEA", fontWeight: "900" }}
+      >
+        {text}
+      </Text>
     </TouchableOpacity>
   );
 }

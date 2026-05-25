@@ -49,7 +49,7 @@ export default function TrainerRequests() {
                 : { data: [] as any[] };
 
             const { data: trainerProfiles } = trainerIds.length
-                ? await supabase.from("trainer_profiles").select("trainer_id, specialty").in("trainer_id", trainerIds)
+                ? await supabase.from("trainer_profiles").select("user_id, specialty").in("user_id", trainerIds)
                 : { data: [] as any[] };
 
             const { data: packages } = packageIds.length
@@ -57,7 +57,7 @@ export default function TrainerRequests() {
                 : { data: [] as any[] };
 
             const trainerMap = new Map((trainers || []).map((x) => [x.id, x.first_name]));
-            const specialtyMap = new Map((trainerProfiles || []).map((x) => [x.trainer_id, x.specialty]));
+            const specialtyMap = new Map((trainerProfiles || []).map((x) => [x.user_id, x.specialty]));
             const packageMap = new Map((packages || []).map((x) => [x.id, x]));
 
             const mapped = (rows || []).map((r) => {

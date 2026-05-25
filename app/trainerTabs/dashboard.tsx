@@ -332,6 +332,25 @@ function AlertRow({
           {subtitle}
         </Text>
       </View>
+      {icon === "checkmark-circle-outline" ? null : (
+        <TouchableOpacity
+          onPress={() => router.push("/trainerTabs/clients")}
+          style={{
+            paddingHorizontal: 10,
+            height: 32,
+            borderRadius: 999,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1,
+            borderColor: BORDER,
+            backgroundColor: "rgba(255,255,255,0.03)",
+          }}
+        >
+          <Text style={{ color: "white", fontWeight: "900", fontSize: 12 }}>
+            View
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

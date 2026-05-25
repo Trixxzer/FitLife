@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Image,
     ScrollView,
     Text,
@@ -35,10 +36,20 @@ export default function TrainerProfilePage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [trainer, setTrainer] = useState<any>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
 
   const loadTrainer = useCallback(async () => {
     try {
       setLoading(true);
+
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+
+      if (userErr) throw userErr;
+      setUserId(user?.id ?? null);
 
       const { data: profile, error: profileError } = await supabase
         .from("trainer_profiles")
@@ -61,6 +72,17 @@ export default function TrainerProfilePage() {
         ...profile,
         application,
       });
+
+      if (user?.id && profile?.user_id) {
+        const { data: existingConvo } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("trainer_id", profile.user_id)
+          .maybeSingle();
+
+        setThreadId(existingConvo?.id ?? null);
+      }
     } catch (e) {
       console.log("load trainer profile error", e);
       setTrainer(null);
@@ -222,6 +244,63 @@ export default function TrainerProfilePage() {
         >
           <Text style={{ color: "white", fontWeight: "900" }}>
             View Packages
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={async () => {
+            if (!userId) {
+              Alert.alert("Error", "Please log in again.");
+              return;
+            }
+
+            if (!trainer?.user_id) {
+              Alert.alert("Error", "Trainer information not found.");
+              return;
+            }
+
+            if (threadId) {
+              router.push(`/userTabs/trainer/chat/${threadId}`);
+              return;
+            }
+
+            try {
+              const { data, error } = await supabase
+                .from("conversations")
+                .insert({ 
+                  user_id: userId, 
+                  trainer_id: trainer.user_id,
+                  phase: 'pre'
+                })
+                .select("id")
+                .single();
+
+              if (error) {
+                console.log("create conversation error", error);
+                Alert.alert("Error", "Could not open chat. Please try again.");
+                return;
+              }
+
+              setThreadId(data.id);
+              router.push(`/userTabs/trainer/chat/${data.id}`);
+            } catch (e: any) {
+              console.log("Message trainer error:", e);
+              Alert.alert("Error", e?.message || "Could not open chat.");
+            }
+          }}
+          style={{
+            marginTop: 10,
+            height: 50,
+            borderRadius: 16,
+            backgroundColor: CARD,
+            borderWidth: 1,
+            borderColor: BORDER,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: "white", fontWeight: "900" }}>
+            Message Trainer
           </Text>
         </TouchableOpacity>
       </View>

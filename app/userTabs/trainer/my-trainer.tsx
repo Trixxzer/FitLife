@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { TRAINER_UPLOADS_BUCKET } from "../../../lib/storage";
 import { supabase } from "../../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
@@ -19,6 +20,19 @@ const CARD = "#111A2C";
 const CARD2 = "#0F1627";
 const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
+
+function getPublicFileUrl(path?: string | null) {
+  if (!path) return null;
+
+  const cleanPath = path.trim().replace(/^\/+/, "");
+  if (!cleanPath) return null;
+
+  const { data } = supabase.storage
+    .from(TRAINER_UPLOADS_BUCKET)
+    .getPublicUrl(cleanPath);
+
+  return data.publicUrl;
+}
 
 function buildWhatsAppPhone(phone?: string | null) {
   if (!phone) return null;
@@ -94,7 +108,7 @@ export default function MyTrainer() {
       const { data: tp } = await supabase
         .from("trainer_profiles")
         .select("*")
-        .eq("trainer_id", relation.trainer_id)
+        .eq("user_id", relation.trainer_id)
         .maybeSingle();
 
       const { data: pkg } = relation.package_id
@@ -104,6 +118,20 @@ export default function MyTrainer() {
             .eq("id", relation.package_id)
             .maybeSingle()
         : { data: null as any };
+
+      let threadId: string | null = null;
+
+      if (user?.id && relation?.trainer_id) {
+        const { data: existingConvo } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("trainer_id", relation.trainer_id)
+          .eq("phase", "post")
+          .maybeSingle();
+
+        threadId = existingConvo?.id ?? null;
+      }
 
       setCoach({
         trainerProfileId: tp?.id || null, // this is what browse.tsx uses
@@ -118,6 +146,7 @@ export default function MyTrainer() {
         },
         profileImageUrl: tp?.profile_image_url || null,
         phone: tp?.contact_number || null,
+        chatThreadId: threadId,
       });
     } catch (e) {
       console.log("loadCoach error", e);
@@ -213,20 +242,20 @@ export default function MyTrainer() {
                 }}
               >
                 <View style={styles.avatar}>
-                  {coach.profileImageUrl ? (
-                    <Image
-                      source={{ uri: coach.profileImageUrl }}
-                      style={{ width: "100%", height: "100%" }}
-                    />
-                  ) : (
-                    <View
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: "#E6E6E6",
-                      }}
-                    />
-                  )}
+                   {coach.profileImageUrl ? (
+                     <Image
+                       source={{ uri: getPublicFileUrl(coach.profileImageUrl) || coach.profileImageUrl }}
+                       style={{ width: "100%", height: "100%" }}
+                     />
+                   ) : (
+                     <View
+                       style={{
+                         width: "100%",
+                         height: "100%",
+                         backgroundColor: "#E6E6E6",
+                       }}
+                     />
+                   )}
                 </View>
 
                 <View style={{ flex: 1 }}>
@@ -273,20 +302,77 @@ export default function MyTrainer() {
                 </View>
               </View>
 
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+               <View
+                 style={{
+                   flexDirection: "row",
+                   gap: 10,
+                   marginTop: 14,
+                   flexWrap: "wrap",
+                 }}
+               >
                 <TouchableOpacity
                   activeOpacity={0.9}
-                  style={[styles.btnOutline, { flex: 1 }]}
-                  onPress={() => openWhatsApp(coach.phone, coach.name)}
+                  style={[styles.btnOutline, { flexBasis: "48%" }]}
+                  onPress={async () => {
+                    if (!coach?.trainerUserId) {
+                      Alert.alert("Error", "Trainer not found.");
+                      return;
+                    }
+
+                    if (coach.chatThreadId) {
+                      router.push(`/userTabs/trainer/chat/${coach.chatThreadId}`);
+                      return;
+                    }
+
+                    const {
+                      data: { user },
+                    } = await supabase.auth.getUser();
+                    if (!user?.id) {
+                      Alert.alert("Error", "Please log in again.");
+                      return;
+                    }
+
+                   const { data, error } = await supabase
+                     .from("conversations")
+                     .insert({ user_id: user.id, trainer_id: coach.trainerUserId, phase: 'post' })
+                     .select("id")
+                     .single();
+
+                    if (error) {
+                      Alert.alert("Error", "Could not open chat.");
+                      return;
+                    }
+
+                    router.push(`/userTabs/trainer/chat/${data.id}`);
+                  }}
                 >
                   <Text style={{ color: "white", fontWeight: "900" }}>
-                    Message
+                    Chat
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   activeOpacity={0.9}
-                  style={[styles.btnSolid, { flex: 1 }]}
+                  style={[styles.btnSolid, { flexBasis: "48%" }]}
+                  onPress={() => {
+                    if (!coach?.trainerUserId) {
+                      Alert.alert("Error", "Trainer not found.");
+                      return;
+                    }
+                    router.push({
+                      pathname: "/userTabs/trainer/video-call",
+                      params: { trainerId: coach.trainerUserId },
+                    });
+                  }}
+                >
+                  <Text style={{ color: "white", fontWeight: "900" }}>
+                    Video Call
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={[styles.btnSolid, { flexBasis: "100%" }]}
                   onPress={() => {
                     if (!coach.trainerProfileId) {
                       Alert.alert("Error", "Trainer profile not found.");

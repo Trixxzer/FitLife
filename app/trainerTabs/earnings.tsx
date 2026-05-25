@@ -23,9 +23,9 @@ type PaymentRow = {
 
 export default function Earnings() {
   const [loading, setLoading] = useState(true);
-  const [weekTotal, setWeekTotal] = useState(0);
+  const [monthTotal, setMonthTotal] = useState(0);
   const [activeClients, setActiveClients] = useState(0);
-  const [sessionCount, setSessionCount] = useState(0);
+  const [paymentCount, setPaymentCount] = useState(0);
   const [transactions, setTransactions] = useState<PaymentRow[]>([]);
   const [lastMethod, setLastMethod] = useState("—");
   const [payoutLabel, setPayoutLabel] = useState("—");
@@ -40,9 +40,9 @@ export default function Earnings() {
       if (userErr) throw userErr;
       if (!user) return;
 
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - 6);
-      weekStart.setHours(0, 0, 0, 0);
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
 
       const { data: paymentRows, error: paymentErr } = await supabase
         .from("payments")
@@ -66,16 +66,17 @@ export default function Earnings() {
 
       setTransactions(successfulPayments.slice(0, 10));
 
-      const weekly = successfulPayments
-        .filter((x) => new Date(x.created_at) >= weekStart)
-        .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+      const monthlyPayments = successfulPayments.filter(
+        (x) => new Date(x.created_at) >= monthStart,
+      );
 
-      const weeklyCount = successfulPayments.filter(
-        (x) => new Date(x.created_at) >= weekStart,
-      ).length;
+      const monthlyTotal = monthlyPayments.reduce(
+        (sum, x) => sum + Number(x.amount || 0),
+        0,
+      );
 
-      setWeekTotal(weekly);
-      setSessionCount(weeklyCount);
+      setMonthTotal(monthlyTotal);
+      setPaymentCount(monthlyPayments.length);
 
       const latestPayment = successfulPayments[0];
       setLastMethod(
@@ -141,7 +142,7 @@ export default function Earnings() {
         <Text style={styles.title}>Earnings</Text>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>THIS WEEK</Text>
+          <Text style={styles.cardTitle}>THIS MONTH</Text>
           <Text
             style={{
               color: "white",
@@ -150,10 +151,10 @@ export default function Earnings() {
               marginTop: 10,
             }}
           >
-            रु {weekTotal.toFixed(3)}
+            रु {monthTotal.toFixed(3)}
           </Text>
           <Text style={{ color: MUTED, marginTop: 4 }}>
-            {sessionCount} payments • {activeClients} active clients
+            {paymentCount} payments • {activeClients} active clients
           </Text>
 
           <View style={styles.divider} />
@@ -178,7 +179,7 @@ export default function Earnings() {
               <Tx
                 key={tx.id}
                 title={tx.product_name || tx.order_id}
-                value={`+ रु ${(Number(tx.amount) / 100).toFixed(2)}`}
+                value={`+ रु ${Number(tx.amount).toFixed(3)}`}
                 sub={`${String(tx.payment_status || "").toUpperCase()}${
                   tx.payment_gateway
                     ? ` • ${String(tx.payment_gateway).toUpperCase()}`

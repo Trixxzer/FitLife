@@ -3,125 +3,72 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  Linking,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { TRAINER_UPLOADS_BUCKET } from "../../../lib/storage";
 import { supabase } from "../../../lib/supabase";
 
 const ACCENT = "#FF4D2D";
 const BG = "#0B0F1A";
 const CARD = "#111A2C";
-const CARD2 = "#0F1627";
 const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
-function buildWhatsAppPhone(phone?: string | null) {
-  if (!phone) return null;
+function getPublicFileUrl(path?: string | null) {
+  if (!path) return null;
 
-  const cleaned = String(phone).replace(/[^\d]/g, "");
-  if (!cleaned) return null;
+  const cleanPath = path.trim().replace(/^\/+/, "");
+  if (!cleanPath) return null;
 
-  if (cleaned.startsWith("977")) return cleaned;
-  if (cleaned.startsWith("0")) return `977${cleaned.slice(1)}`;
-  return `977${cleaned}`;
+  const { data } = supabase.storage
+    .from(TRAINER_UPLOADS_BUCKET)
+    .getPublicUrl(cleanPath);
+
+  return data.publicUrl;
 }
 
-export default function MyTrainer() {
+type TrainerCard = {
+  id: string;
+  full_name: string | null;
+  specialty: string | null;
+  location: string | null;
+  monthly_rate: number | null;
+  rating: number | null;
+  reviews_count: number | null;
+  photo_path: string | null;
+};
+
+export default function BrowseTrainers() {
   const [loading, setLoading] = useState(true);
-  const [coach, setCoach] = useState<any>(null);
+  const [trainers, setTrainers] = useState<TrainerCard[]>([]);
 
-  const openWhatsApp = async (phone?: string | null, trainerName?: string) => {
-    const formattedPhone = buildWhatsAppPhone(phone);
-
-    if (!formattedPhone) {
-      Alert.alert(
-        "No phone number",
-        "This trainer has not added a phone number yet.",
-      );
-      return;
-    }
-
-    const message = `Hi ${trainerName || "Coach"}, I am your client from FitLife.`;
-    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert("Error", "Could not open WhatsApp.");
-    }
-  };
-
-  const loadCoach = useCallback(async () => {
+  const loadTrainers = useCallback(async () => {
     try {
       setLoading(true);
 
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-
-      if (userErr) throw userErr;
-
-      if (!user) {
-        setCoach(null);
-        return;
-      }
-
-      const { data: relation, error: relationErr } = await supabase
-        .from("user_trainers")
-        .select("id, trainer_id, package_id, status, created_at")
-        .eq("user_id", user.id)
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .maybeSingle();
-
-      if (relationErr || !relation) {
-        setCoach(null);
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id, first_name")
-        .eq("id", relation.trainer_id)
-        .single();
-
-      const { data: tp } = await supabase
+      const { data, error } = await supabase
         .from("trainer_profiles")
-        .select("*")
-        .eq("trainer_id", relation.trainer_id)
-        .maybeSingle();
+        .select(
+          "id, full_name, specialty, location, monthly_rate, rating, reviews_count, photo_path",
+        )
+        .order("rating", { ascending: false })
+        .order("reviews_count", { ascending: false });
 
-      const { data: pkg } = relation.package_id
-        ? await supabase
-            .from("trainer_packages")
-            .select("*")
-            .eq("id", relation.package_id)
-            .maybeSingle()
-        : { data: null as any };
+      if (error) throw error;
 
-      setCoach({
-        trainerProfileId: tp?.id || null, // this is what browse.tsx uses
-        trainerUserId: relation.trainer_id, // actual trainer account id
-        name: tp?.full_name || profile?.first_name || "Trainer",
-        specialty: tp?.specialty || "Fitness Coaching",
-        rating: Number(tp?.rating || 0),
-        sessionsThisWeek: pkg?.sessions_per_week || 0,
-        plan: {
-          name: pkg?.title || "Active Plan",
-          price: Number(pkg?.price || 0),
-        },
-        profileImageUrl: tp?.profile_image_url || null,
-        phone: tp?.contact_number || null,
-      });
+      console.log("[browse] trainers data:", data);
+      if (data && data.length > 0) {
+        console.log("[browse] first trainer:", data[0]);
+      }
+
+      setTrainers((data as TrainerCard[]) || []);
     } catch (e) {
-      console.log("loadCoach error", e);
-      setCoach(null);
+      console.log("loadTrainers error", e);
+      setTrainers([]);
     } finally {
       setLoading(false);
     }
@@ -129,8 +76,8 @@ export default function MyTrainer() {
 
   useFocusEffect(
     useCallback(() => {
-      loadCoach();
-    }, [loadCoach]),
+      loadTrainers();
+    }, [loadTrainers]),
   );
 
   if (loading) {
@@ -163,202 +110,90 @@ export default function MyTrainer() {
             <Ionicons name="arrow-back-outline" size={22} color="white" />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>My Trainer</Text>
+          <Text style={styles.headerTitle}>Browse Trainers</Text>
 
           <TouchableOpacity
             activeOpacity={0.9}
             style={styles.iconBtn}
-            onPress={() => router.push("/userTabs/trainer/browse")}
+            onPress={() => router.push("/userTabs/trainer/my-trainer")}
           >
-            <Ionicons name="people-outline" size={20} color="white" />
+            <Ionicons name="person-circle-outline" size={20} color="white" />
           </TouchableOpacity>
         </View>
 
-        {!coach ? (
+        {trainers.length === 0 ? (
           <View
             style={[
               styles.card,
               { marginTop: 14, alignItems: "center", paddingVertical: 22 },
             ]}
           >
-            <Ionicons name="person-add-outline" size={28} color={ACCENT} />
+            <Ionicons name="people-outline" size={28} color={ACCENT} />
             <Text style={{ color: "white", fontWeight: "900", marginTop: 10 }}>
-              No trainer yet
+              No trainers available
             </Text>
             <Text style={{ color: MUTED, marginTop: 6, textAlign: "center" }}>
-              Browse trainers and send a request to start coaching.
+              Check back soon for new trainers.
             </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.9}
-              style={[styles.btnSolid, { marginTop: 14 }]}
-              onPress={() => router.push("/userTabs/trainer/browse")}
-            >
-              <Text style={{ color: "white", fontWeight: "900" }}>
-                Browse Trainers
-              </Text>
-            </TouchableOpacity>
           </View>
         ) : (
-          <>
-            <View style={[styles.card, { marginTop: 14 }]}>
-              <Text style={styles.cardTitle}>ACTIVE COACH</Text>
-
+          trainers.map((trainer) => (
+            <TouchableOpacity
+              key={trainer.id}
+              activeOpacity={0.9}
+              style={[styles.card, { marginTop: 12 }]}
+              onPress={() => router.push(`/userTabs/trainer/${trainer.id}`)}
+            >
               <View
-                style={{
-                  flexDirection: "row",
-                  gap: 12,
-                  marginTop: 12,
-                  alignItems: "center",
-                }}
+                style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
               >
                 <View style={styles.avatar}>
-                  {coach.profileImageUrl ? (
-                    <Image
-                      source={{ uri: coach.profileImageUrl }}
-                      style={{ width: "100%", height: "100%" }}
-                    />
-                  ) : (
-                    <View
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: "#E6E6E6",
-                      }}
-                    />
-                  )}
+                   {trainer.photo_path ? (
+                     <Image
+                       source={{ uri: getPublicFileUrl(trainer.photo_path) || "https://picsum.photos/200" }}
+                       style={{ width: "100%", height: "100%", borderRadius: 20 }}
+                     />
+                   ) : (
+                     <Image
+                       source={{ uri: "https://picsum.photos/200" }}
+                       style={{ width: "100%", height: "100%", borderRadius: 20 }}
+                     />
+                   )}
                 </View>
 
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{ color: "white", fontWeight: "900", fontSize: 16 }}
                   >
-                    {coach.name}
+                    {trainer.full_name || "Trainer"}
                   </Text>
                   <Text style={{ color: MUTED, marginTop: 2 }}>
-                    {coach.specialty}
+                    {trainer.specialty || "Fitness Coaching"}
+                  </Text>
+                  <Text style={{ color: MUTED, marginTop: 2, fontSize: 12 }}>
+                    {trainer.location || "Online"}
                   </Text>
 
                   <View
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      gap: 8,
                       marginTop: 8,
+                      justifyContent: "space-between",
                     }}
                   >
-                    <Ionicons name="star" size={14} color="#FFD166" />
+                    {/* <Text style={{ color: "white", fontWeight: "800" }}>
+                      ${Number(trainer.monthly_rate || 0)}/mo
+                    </Text> */}
                     <Text style={{ color: MUTED, fontSize: 12 }}>
-                      {coach.rating.toFixed(1)} rating
+                      {Number(trainer.rating || 0).toFixed(1)} (
+                      {trainer.reviews_count || 0})
                     </Text>
-
-                    <View
-                      style={{
-                        marginLeft: "auto",
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                      }}
-                    >
-                      <Ionicons
-                        name="calendar-outline"
-                        size={14}
-                        color={MUTED}
-                      />
-                      <Text style={{ color: MUTED, fontSize: 12 }}>
-                        {coach.sessionsThisWeek} sessions/week
-                      </Text>
-                    </View>
                   </View>
                 </View>
               </View>
-
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={[styles.btnOutline, { flex: 1 }]}
-                  onPress={() => openWhatsApp(coach.phone, coach.name)}
-                >
-                  <Text style={{ color: "white", fontWeight: "900" }}>
-                    Message
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={[styles.btnSolid, { flex: 1 }]}
-                  onPress={() => {
-                    if (!coach.trainerProfileId) {
-                      Alert.alert("Error", "Trainer profile not found.");
-                      return;
-                    }
-                    router.push(`/userTabs/trainer/${coach.trainerProfileId}`);
-                  }}
-                >
-                  <Text style={{ color: "white", fontWeight: "900" }}>
-                    View Profile
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={[styles.card, { marginTop: 12 }]}>
-              <Text style={styles.cardTitle}>YOUR PLAN</Text>
-
-              <View
-                style={{
-                  marginTop: 10,
-                  padding: 12,
-                  borderRadius: 16,
-                  backgroundColor: CARD2,
-                  borderWidth: 1,
-                  borderColor: BORDER,
-                }}
-              >
-                <View
-                  style={{ flexDirection: "row", justifyContent: "space-between" }}
-                >
-                  <Text style={{ color: "white", fontWeight: "900" }}>
-                    {coach.plan.name}
-                  </Text>
-                  <Text style={{ color: "white", fontWeight: "900" }}>
-                    ${coach.plan.price}/mo
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={[styles.btnOutline, { flex: 1, height: 42 }]}
-                  >
-                    <Text
-                      style={{
-                        color: "white",
-                        fontWeight: "900",
-                        fontSize: 12,
-                      }}
-                    >
-                      Manage
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={[styles.btnOutline, { flex: 1, height: 42 }]}
-                  >
-                    <Text
-                      style={{
-                        color: "white",
-                        fontWeight: "900",
-                        fontSize: 12,
-                      }}
-                    >
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </>
+            </TouchableOpacity>
+          ))
         )}
       </ScrollView>
     </View>
@@ -404,21 +239,5 @@ const styles = {
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: "#E6E6E6",
-  },
-  btnSolid: {
-    height: 46,
-    borderRadius: 16,
-    backgroundColor: ACCENT,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  },
-  btnOutline: {
-    height: 46,
-    borderRadius: 16,
-    backgroundColor: CARD2,
-    borderWidth: 1,
-    borderColor: BORDER,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
   },
 };

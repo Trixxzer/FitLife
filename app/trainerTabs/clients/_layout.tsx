@@ -10,6 +10,8 @@ export default function ClientsLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="review-requests" />
+      <Stack.Screen name="chat/[threadId]" />
+      <Stack.Screen name="video-call" />
     </Stack>
   );
 }

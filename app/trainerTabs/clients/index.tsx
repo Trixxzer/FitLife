@@ -24,6 +24,7 @@ type ClientRow = {
   status: string;
   last: string;
   goal: string;
+  threadId: string | null;
 };
 
 type UserTrainerRow = {
@@ -138,12 +139,29 @@ export default function Clients() {
           status: "Active",
           last: lastWorkout ? formatRelative(lastWorkout) : "No workouts yet",
           goal: formatGoal(profile?.goal_type),
+          threadId: null,
         };
       });
 
+      const { data: threads } = await supabase
+        .from("conversations")
+        .select("id, user_id")
+        .eq("trainer_id", user.id)
+        .in("user_id", approvedUserIds);
+
+      const threadMap = new Map<string, string>();
+      (threads || []).forEach((t: any) => {
+        if (t?.user_id && t?.id) threadMap.set(t.user_id, t.id);
+      });
+
+      const enrichedClients = mappedClients.map((c) => ({
+        ...c,
+        threadId: threadMap.get(c.id) || null,
+      }));
+
       console.log("[clients] final mapped clients:", mappedClients);
 
-      setClients(mappedClients);
+      setClients(enrichedClients);
     } catch (e: any) {
       console.log("Clients load error:", e);
       Alert.alert("Error", e?.message || "Failed to load clients.");
@@ -190,40 +208,130 @@ export default function Clients() {
             <Text style={{ color: MUTED, marginTop: 12 }}>
               No approved clients yet.
             </Text>
-          ) : (
-            clients.map((c) => (
-              <TouchableOpacity
-                key={c.id}
-                activeOpacity={0.9}
-                style={styles.row}
-              >
-                <View style={styles.avatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: "white", fontWeight: "900" }}>
-                    {c.name}
-                  </Text>
-                  <Text
-                    style={{ color: MUTED, fontSize: 12, marginTop: 2 }}
-                    numberOfLines={1}
-                  >
-                    {c.goal} • Last active: {c.last}
-                  </Text>
-                </View>
+           ) : (
+             clients.map((c) => (
+               <View
+                 key={c.id}
+                 style={{
+                   marginTop: 10,
+                   borderRadius: 16,
+                   backgroundColor: CARD2,
+                   borderWidth: 1,
+                   borderColor: BORDER,
+                   overflow: "hidden",
+                 }}
+               >
+                 <TouchableOpacity
+                   activeOpacity={0.9}
+                   style={styles.row}
+                   onPress={async () => {
+                     if (c.threadId) {
+                       router.push(`/trainerTabs/clients/chat/${c.threadId}`);
+                       return;
+                     }
 
-                <View style={styles.badge}>
-                  <Text
-                    style={{
-                      color: "#7FF2C6",
-                      fontWeight: "900",
-                      fontSize: 12,
-                    }}
-                  >
-                    {c.status}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
+                     const {
+                       data: { user },
+                     } = await supabase.auth.getUser();
+                     if (!user?.id) {
+                       Alert.alert("Error", "Please log in again.");
+                       return;
+                     }
+
+                   const { data, error } = await supabase
+                     .from("conversations")
+                     .insert({ user_id: c.id, trainer_id: user.id, phase: 'post' })
+                     .select("id")
+                     .single();
+
+                     if (error) {
+                       Alert.alert("Error", "Could not open chat.");
+                       return;
+                     }
+
+                     router.push(`/trainerTabs/clients/chat/${data.id}`);
+                   }}
+                 >
+                   <View style={styles.avatar} />
+                   <View style={{ flex: 1 }}>
+                     <Text style={{ color: "white", fontWeight: "900" }}>
+                       {c.name}
+                     </Text>
+                     <Text
+                       style={{ color: MUTED, fontSize: 12, marginTop: 2 }}
+                       numberOfLines={1}
+                     >
+                       {c.goal} • Last active: {c.last}
+                     </Text>
+                   </View>
+
+                   <View style={styles.badge}>
+                     <Text
+                       style={{
+                         color: "#7FF2C6",
+                         fontWeight: "900",
+                         fontSize: 12,
+                       }}
+                     >
+                       {c.status}
+                     </Text>
+                   </View>
+                   <Ionicons name="chatbubble-ellipses-outline" size={18} color={MUTED} />
+                 </TouchableOpacity>
+
+                 <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: BORDER }}>
+                   <TouchableOpacity
+                     activeOpacity={0.9}
+                     style={[styles.actionBtn, { borderRightWidth: 1, borderRightColor: BORDER }]}
+                     onPress={async () => {
+                       if (c.threadId) {
+                         router.push(`/trainerTabs/clients/chat/${c.threadId}`);
+                         return;
+                       }
+
+                       const {
+                         data: { user },
+                       } = await supabase.auth.getUser();
+                       if (!user?.id) {
+                         Alert.alert("Error", "Please log in again.");
+                         return;
+                       }
+
+                       const { data, error } = await supabase
+                         .from("conversations")
+                         .insert({ user_id: c.id, trainer_id: user.id, phase: 'post' })
+                         .select("id")
+                         .single();
+
+                       if (error) {
+                         Alert.alert("Error", "Could not open chat.");
+                         return;
+                       }
+
+                       router.push(`/trainerTabs/clients/chat/${data.id}`);
+                     }}
+                   >
+                     <Ionicons name="chatbubble-outline" size={16} color={ORANGE} />
+                     <Text style={{ color: ORANGE, fontWeight: "900", fontSize: 11, marginLeft: 4 }}>Chat</Text>
+                   </TouchableOpacity>
+
+                   <TouchableOpacity
+                     activeOpacity={0.9}
+                     style={styles.actionBtn}
+                     onPress={() => {
+                       router.push({
+                         pathname: "/trainerTabs/clients/video-call",
+                         params: { userId: c.id },
+                       });
+                     }}
+                   >
+                     <Ionicons name="videocam-outline" size={16} color={ORANGE} />
+                     <Text style={{ color: ORANGE, fontWeight: "900", fontSize: 11, marginLeft: 4 }}>Video</Text>
+                   </TouchableOpacity>
+                 </View>
+               </View>
+             ))
+           )}
         </View>
 
         <TouchableOpacity
@@ -233,7 +341,7 @@ export default function Clients() {
         >
           <Ionicons name="person-add-outline" size={18} color="white" />
           <Text style={{ color: "white", fontWeight: "900" }}>
-            Review Requests ({pendingCount})
+            Review Requests
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -327,5 +435,13 @@ const styles = {
     justifyContent: "center" as const,
     flexDirection: "row" as const,
     gap: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    flexDirection: "row" as const,
   },
 };

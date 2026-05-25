@@ -535,3 +535,7 @@
 //         </View>
 //     );
 // }
+
+export default function PushupPlaceholder() {
+  return null;
+}

@@ -1,13 +1,4 @@
-// app/(tabs)/diet.tsx
-// Diet page — original design preserved
-// ✅ Uses Supabase food_database for searchable foods
-// ✅ Uses Supabase diet_logs for user meal logs
-// ✅ Uses profiles.calorie_goal for target calories
-// ✅ Dynamic meal cards
-// ✅ Add Food search modal
-// ✅ Tap meal card to open Meal Details modal
-// ✅ Delete single food
-// ✅ Clear entire meal
+
 
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
