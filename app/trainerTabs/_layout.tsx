@@ -55,11 +55,6 @@ export default function TrainerTabsLayout() {
         return;
       }
 
-      // Only redirect to pending if not approved on initial check
-      if (!isApproved && !checked) {
-        router.replace("/trainerTabs/pending");
-      }
-
       setChecked(true);
     } catch {
       router.replace("/auth/Login");

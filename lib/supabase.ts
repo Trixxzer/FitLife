@@ -15,4 +15,16 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     detectSessionInUrl: false,
   },
+  // Add timeout configuration for network requests
+  global: {
+    headers: {
+      "X-Client-Info": "supabase-js/2.95.3",
+    },
+  },
+  // Optional: Configure realtime settings
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 });

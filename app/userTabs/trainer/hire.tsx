@@ -23,7 +23,7 @@ const DANGER = "#EF4444";
 
 type TrainerInfo = {
   id: string;
-  trainer_id?: string | null;
+  user_id?: string | null;
   full_name: string | null;
   specialty: string | null;
   monthly_rate: number | null;
@@ -97,12 +97,13 @@ export default function HireTrainerPage() {
   const [requests, setRequests] = useState<TrainerRequest[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [chatThreadId, setChatThreadId] = useState<string | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const resolvedTrainerProfileId = useMemo(() => {
-    return trainer?.trainer_id || trainerId || null;
+    return trainer?.user_id || trainerId || null;
   }, [trainer, trainerId]);
 
   const loadRequestsAndPayments = useCallback(
@@ -151,6 +152,16 @@ export default function HireTrainerPage() {
 
         if (paymentError) throw paymentError;
         setPayments((paymentRows ?? []) as PaymentRow[]);
+
+        const { data: chatRow } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq("user_id", currentUserId)
+          .eq("trainer_id", currentTrainerProfileId)
+          .eq("phase", "pre")
+          .maybeSingle();
+
+        setChatThreadId(chatRow?.id ?? null);
       } catch (e) {
         console.log("[hire.tsx] loadRequestsAndPayments error:", e);
       }
@@ -189,8 +200,8 @@ export default function HireTrainerPage() {
 
       const { data: trainerRows, error: trainerError } = await supabase
         .from("trainer_profiles")
-        .select("id, trainer_id, full_name, specialty, monthly_rate")
-        .or(`id.eq.${trainerId},trainer_id.eq.${trainerId}`);
+        .select("id, user_id, full_name, specialty, monthly_rate")
+        .or(`id.eq.${trainerId},user_id.eq.${trainerId}`);
 
       if (trainerError) throw trainerError;
 
@@ -202,7 +213,7 @@ export default function HireTrainerPage() {
       const possibleTrainerIds = uniqueIds([
         trainerId,
         resolvedTrainer?.id,
-        resolvedTrainer?.trainer_id,
+        resolvedTrainer?.user_id,
       ]);
 
       let packageRows: TrainerPackage[] = [];
@@ -239,7 +250,7 @@ export default function HireTrainerPage() {
       setPackages(packageRows);
 
       const finalTrainerProfileId =
-        resolvedTrainer?.trainer_id || trainerId || null;
+        resolvedTrainer?.id || trainerId || null;
 
       if (finalTrainerProfileId) {
         await loadRequestsAndPayments(user.id, finalTrainerProfileId);
@@ -660,6 +671,47 @@ export default function HireTrainerPage() {
         <Text style={styles.summaryPrice}>
           Starting from {formatMoney(trainer?.monthly_rate)}/mo
         </Text>
+       <TouchableOpacity
+          activeOpacity={0.9}
+          style={[styles.secondaryBtn, { marginTop: 12 }]}
+          onPress={async () => {
+            if (!userId || !resolvedTrainerProfileId) {
+              Alert.alert("Error", "Trainer information not found.");
+              return;
+            }
+
+            if (chatThreadId) {
+              router.push(`/userTabs/trainer/chat/${chatThreadId}`);
+              return;
+            }
+
+            try {
+              const { data, error } = await supabase
+                .from("conversations")
+                .insert({ 
+                  user_id: userId, 
+                  trainer_id: resolvedTrainerProfileId,
+                  phase: 'pre'
+                })
+                .select("id")
+                .single();
+
+              if (error) {
+                console.log("create conversation error:", error);
+                Alert.alert("Error", "Could not open chat. Please try again.");
+                return;
+              }
+
+              setChatThreadId(data.id);
+              router.push(`/userTabs/trainer/chat/${data.id}`);
+            } catch (e: any) {
+              console.log("Chat error:", e);
+              Alert.alert("Error", e?.message || "Could not open chat.");
+            }
+          }}
+        >
+          <Text style={[styles.secondaryBtnText, { color: "white" }]}>Chat with trainer</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={{ marginTop: 14 }}>

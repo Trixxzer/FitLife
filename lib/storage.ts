@@ -9,7 +9,7 @@ export const resolveStoragePath = (
 ) => {
   if (!filePath) return null;
 
-  const cleanPath = String(filePath).trim();
+  let cleanPath = String(filePath).trim().replace(/^\/+/, "");
   if (!cleanPath) return null;
 
   // already includes folder path
@@ -35,7 +35,6 @@ export const getStorageFileUrl = async (
     const resolvedPath = resolveStoragePath(filePath, userId);
     if (!resolvedPath) return null;
 
-    // for private bucket use signed URL
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(resolvedPath, 60 * 5);
@@ -52,6 +51,21 @@ export const getStorageFileUrl = async (
   }
 };
 
+export const getPublicStorageFileUrl = (
+  bucket: string,
+  filePath?: string | null,
+  userId?: string | null,
+) => {
+  const resolvedPath = resolveStoragePath(filePath, userId);
+  if (!resolvedPath) return null;
+
+  const { data } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(resolvedPath);
+
+  return data.publicUrl;
+};
+
 export const openStorageFile = async (
   bucket: string,
   filePath?: string | null,
@@ -63,7 +77,12 @@ export const openStorageFile = async (
       return;
     }
 
-    const url = await getStorageFileUrl(bucket, filePath, userId);
+    // Try signed URL first, fall back to public URL
+    let url = await getStorageFileUrl(bucket, filePath, userId);
+
+    if (!url) {
+      url = getPublicStorageFileUrl(bucket, filePath, userId);
+    }
 
     if (!url) {
       Alert.alert("Open failed", "Could not generate file URL.");

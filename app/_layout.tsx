@@ -7,6 +7,24 @@ type Profile = {
   trainer_approved: boolean | null;
 };
 
+// Retry logic for network requests
+const retryWithBackoff = async (
+  fn: () => any,
+  maxRetries: number = 3,
+  delay: number = 1000
+) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      if (i === maxRetries - 1) throw error;
+      console.log(`[_layout] Retry attempt ${i + 1}/${maxRetries} after ${delay}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
+    }
+  }
+};
+
 export default function RootLayout() {
   const segments = useSegments();
 
@@ -15,38 +33,62 @@ export default function RootLayout() {
   const [loading, setLoading] = useState(true);
 
   async function loadProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("role, trainer_approved")
-      .eq("id", userId)
-      .single();
+    try {
+      const { data, error } = await retryWithBackoff(
+        () => {
+          return supabase
+            .from("profiles")
+            .select("role, trainer_approved")
+            .eq("id", userId)
+            .single();
+        }
+      );
 
-    if (error) {
-      console.log("Profile fetch error:", error.message);
+      if (error) {
+        console.log("[_layout] Profile fetch error:", error.message);
+        return null;
+      }
+
+      return data as Profile;
+    } catch (e: any) {
+      console.error("[_layout] Profile fetch failed after retries:", e?.message);
       return null;
     }
-
-    return data as Profile;
   }
 
   useEffect(() => {
     let mounted = true;
 
     const bootstrap = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        console.log("[_layout] Bootstrapping session...");
+        
+        const { data } = await retryWithBackoff(() =>
+          supabase.auth.getSession()
+        );
+        
+        if (!mounted) return;
 
-      const currentSession = data.session;
-      setSession(currentSession);
+        const currentSession = data.session;
+        setSession(currentSession);
+        console.log("[_layout] Session loaded:", !!currentSession);
 
-      if (currentSession?.user?.id) {
-        const profileData = await loadProfile(currentSession.user.id);
-        if (mounted) setProfile(profileData);
-      } else {
-        setProfile(null);
+        if (currentSession?.user?.id) {
+          const profileData = await loadProfile(currentSession.user.id);
+          if (mounted) setProfile(profileData);
+        } else {
+          setProfile(null);
+        }
+
+        if (mounted) setLoading(false);
+      } catch (e: any) {
+        console.error("[_layout] Bootstrap failed:", e?.message);
+        if (mounted) {
+          setLoading(false);
+          setSession(null);
+          setProfile(null);
+        }
       }
-
-      if (mounted) setLoading(false);
     };
 
     bootstrap();

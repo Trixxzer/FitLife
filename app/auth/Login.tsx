@@ -168,6 +168,15 @@ export default function Login() {
           </TouchableOpacity>
         </View>
         <TouchableOpacity
+          onPress={() => router.push("/auth/ForgotPassword")}
+          activeOpacity={0.85}
+          style={{ marginTop: 10, alignItems: "center" }}
+        >
+          <Text style={{ color: "#9AA6BD", fontWeight: "800", fontSize: 13 }}>
+            Forgot password?
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={() => router.push("/auth/adminlogin")}
           activeOpacity={0.85}
           style={{

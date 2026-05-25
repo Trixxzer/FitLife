@@ -10,6 +10,9 @@ export default function TrainerLayout() {
             <Stack.Screen name="hire" />
             <Stack.Screen name="requests" />
             <Stack.Screen name="my-trainer" />
+            <Stack.Screen name="chats" />
+            <Stack.Screen name="chat/[threadId]" />
+            <Stack.Screen name="video-call" />
         </Stack>
     );
 }

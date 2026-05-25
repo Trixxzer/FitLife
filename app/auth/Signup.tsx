@@ -25,6 +25,92 @@ type ActivityLevel =
   | "very_active"
   | "extra_active";
 
+function toHeightCm(height?: string, heightUnit?: HeightUnit) {
+  const n = Number(String(height ?? "").replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0) return null;
+
+  if (heightUnit === "ft") {
+    return n * 30.48;
+  }
+
+  return n;
+}
+
+function toWeightKg(weight?: string, unit?: Unit) {
+  const n = Number(String(weight ?? "").replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0) return null;
+
+  if (unit === "lb") {
+    return n * 0.45359237;
+  }
+
+  return n;
+}
+
+function getActivityMultiplier(activityLevel?: ActivityLevel) {
+  switch (activityLevel) {
+    case "sedentary":
+      return 1.2;
+    case "lightly_active":
+      return 1.375;
+    case "moderately_active":
+      return 1.55;
+    case "very_active":
+      return 1.725;
+    case "extra_active":
+      return 1.9;
+    default:
+      return 1.375;
+  }
+}
+
+function calculateCalorieGoal(params: {
+  gender?: Gender;
+  age?: string;
+  height?: string;
+  heightUnit?: HeightUnit;
+  currentWeight?: string;
+  unit?: Unit;
+  activityLevel?: ActivityLevel;
+  goalType?: GoalType;
+}) {
+  const ageNum = Number(params.age ?? "");
+  const weightKg = toWeightKg(params.currentWeight, params.unit);
+  const heightCm = toHeightCm(params.height, params.heightUnit);
+
+  if (!weightKg || !heightCm || !Number.isFinite(ageNum) || ageNum <= 0) {
+    return 2000;
+  }
+
+  let bmr = 10 * weightKg + 6.25 * heightCm - 5 * ageNum;
+
+  if (params.gender === "male") bmr += 5;
+  else if (params.gender === "female") bmr -= 161;
+  else bmr -= 78;
+
+  const activityMultiplier = getActivityMultiplier(params.activityLevel);
+  let maintenance = bmr * activityMultiplier;
+
+  switch (params.goalType) {
+    case "lose_weight":
+      maintenance -= 400;
+      break;
+    case "gain_muscle":
+      maintenance += 250;
+      break;
+    case "endurance":
+      maintenance += 350;
+      break;
+    case "stay_fit":
+    default:
+      break;
+  }
+
+  const finalCalories = Math.round(maintenance);
+
+  return Math.max(1200, Math.min(finalCalories, 5000));
+}
+
 export default function Signup() {
   const navigation = useNavigation();
 
@@ -48,7 +134,8 @@ export default function Signup() {
   const [currentWeight, setCurrentWeight] = useState("");
   const [goalWeight, setGoalWeight] = useState("");
 
-  const [activityLevel, setActivityLevel] = useState<ActivityLevel>("moderately_active");
+  const [activityLevel, setActivityLevel] =
+    useState<ActivityLevel>("moderately_active");
   const [goalType, setGoalType] = useState<GoalType>("lose_weight");
 
   const [email, setEmail] = useState("");
@@ -135,7 +222,13 @@ export default function Signup() {
 
     if (step === 1) return firstName.trim().length >= 2;
 
-    if (step === 2) return gender === "male" || gender === "female" || gender === "others" || gender === "na";
+    if (step === 2)
+      return (
+        gender === "male" ||
+        gender === "female" ||
+        gender === "others" ||
+        gender === "na"
+      );
 
     if (step === 3) {
       const n = Number(age);
@@ -203,11 +296,9 @@ export default function Signup() {
     try {
       const cleanEmail = email.trim().toLowerCase();
 
-      const { error } = await supabase.auth.signInWithOtp({
+      const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
-        options: {
-          shouldCreateUser: true,
-        },
+        password: password.trim(),
       });
 
       if (error) throw error;
@@ -247,7 +338,11 @@ export default function Signup() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={goBack} activeOpacity={0.85} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={goBack}
+            activeOpacity={0.85}
+            style={styles.backBtn}
+          >
             <Ionicons name="arrow-back-outline" size={25} color="white" />
           </TouchableOpacity>
 
@@ -283,9 +378,21 @@ export default function Signup() {
           {step === 2 && (
             <View style={{ gap: 12 }}>
               <PillRow>
-                <Pill active={gender === "male"} text="Male" onPress={() => setGender("male")} />
-                <Pill active={gender === "female"} text="Female" onPress={() => setGender("female")} />
-                <Pill active={gender === "others"} text="Others" onPress={() => setGender("others")} />
+                <Pill
+                  active={gender === "male"}
+                  text="Male"
+                  onPress={() => setGender("male")}
+                />
+                <Pill
+                  active={gender === "female"}
+                  text="Female"
+                  onPress={() => setGender("female")}
+                />
+                <Pill
+                  active={gender === "others"}
+                  text="Others"
+                  onPress={() => setGender("others")}
+                />
               </PillRow>
               <Pill
                 active={gender === "na"}
@@ -315,7 +422,10 @@ export default function Signup() {
             <>
               <RowBetween>
                 <Text style={styles.label}>height</Text>
-                <HeightUnitToggle heightUnit={heightUnit} setHeightUnit={setHeightUnit} />
+                <HeightUnitToggle
+                  heightUnit={heightUnit}
+                  setHeightUnit={setHeightUnit}
+                />
               </RowBetween>
               <TextInput
                 placeholder={heightUnit === "cm" ? "e.g., 175" : "e.g., 5.8"}
@@ -326,7 +436,9 @@ export default function Signup() {
                 keyboardType="numeric"
               />
               <Text style={styles.helper}>
-                {heightUnit === "cm" ? "Allowed range: 100–250 cm" : "Allowed range: 3–8 ft"}
+                {heightUnit === "cm"
+                  ? "Allowed range: 100–250 cm"
+                  : "Allowed range: 3–8 ft"}
               </Text>
             </>
           )}
@@ -341,7 +453,9 @@ export default function Signup() {
                 placeholder={unit === "kg" ? "e.g., 72" : "e.g., 160"}
                 placeholderTextColor="#6B7690"
                 value={currentWeight}
-                onChangeText={(t) => setCurrentWeight(t.replace(/[^0-9.,]/g, ""))}
+                onChangeText={(t) =>
+                  setCurrentWeight(t.replace(/[^0-9.,]/g, ""))
+                }
                 style={styles.input}
                 keyboardType="numeric"
               />
@@ -466,7 +580,9 @@ export default function Signup() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.label, { marginTop: 16 }]}>confirm password</Text>
+              <Text style={[styles.label, { marginTop: 16 }]}>
+                confirm password
+              </Text>
               <View style={styles.passwordWrapper}>
                 <TextInput
                   placeholder="Re-enter password"
@@ -483,14 +599,18 @@ export default function Signup() {
                   activeOpacity={0.7}
                 >
                   <Ionicons
-                    name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                    name={
+                      showConfirmPassword ? "eye-off-outline" : "eye-outline"
+                    }
                     size={22}
                     color="#9AA6BD"
                   />
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.helper}>Password must be at least 8 characters.</Text>
+              <Text style={styles.helper}>
+                Password must be at least 8 characters.
+              </Text>
             </>
           )}
         </View>
@@ -521,7 +641,13 @@ export default function Signup() {
 
 function RowBetween({ children }: { children: React.ReactNode }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
       {children}
     </View>
   );
@@ -555,29 +681,57 @@ function Pill({
         },
       ]}
     >
-      <Text style={{ color: active ? "#FFD3CA" : "#D7DEEA", fontWeight: "900" }}>
+      <Text
+        style={{ color: active ? "#FFD3CA" : "#D7DEEA", fontWeight: "900" }}
+      >
         {text}
       </Text>
     </TouchableOpacity>
   );
 }
 
-function UnitToggle({ unit, setUnit }: { unit: Unit; setUnit: (u: Unit) => void }) {
+function UnitToggle({
+  unit,
+  setUnit,
+}: {
+  unit: Unit;
+  setUnit: (u: Unit) => void;
+}) {
   return (
     <View style={{ flexDirection: "row", gap: 8 }}>
       <TouchableOpacity
         onPress={() => setUnit("kg")}
         activeOpacity={0.9}
-        style={[styles.unitBtn, { backgroundColor: unit === "kg" ? "#FF4D2D" : "transparent" }]}
+        style={[
+          styles.unitBtn,
+          { backgroundColor: unit === "kg" ? "#FF4D2D" : "transparent" },
+        ]}
       >
-        <Text style={{ color: unit === "kg" ? "white" : "#9AA6BD", fontWeight: "900" }}>kg</Text>
+        <Text
+          style={{
+            color: unit === "kg" ? "white" : "#9AA6BD",
+            fontWeight: "900",
+          }}
+        >
+          kg
+        </Text>
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setUnit("lb")}
         activeOpacity={0.9}
-        style={[styles.unitBtn, { backgroundColor: unit === "lb" ? "#FF4D2D" : "transparent" }]}
+        style={[
+          styles.unitBtn,
+          { backgroundColor: unit === "lb" ? "#FF4D2D" : "transparent" },
+        ]}
       >
-        <Text style={{ color: unit === "lb" ? "white" : "#9AA6BD", fontWeight: "900" }}>lb</Text>
+        <Text
+          style={{
+            color: unit === "lb" ? "white" : "#9AA6BD",
+            fontWeight: "900",
+          }}
+        >
+          lb
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -595,16 +749,36 @@ function HeightUnitToggle({
       <TouchableOpacity
         onPress={() => setHeightUnit("cm")}
         activeOpacity={0.9}
-        style={[styles.unitBtn, { backgroundColor: heightUnit === "cm" ? "#FF4D2D" : "transparent" }]}
+        style={[
+          styles.unitBtn,
+          { backgroundColor: heightUnit === "cm" ? "#FF4D2D" : "transparent" },
+        ]}
       >
-        <Text style={{ color: heightUnit === "cm" ? "white" : "#9AA6BD", fontWeight: "900" }}>cm</Text>
+        <Text
+          style={{
+            color: heightUnit === "cm" ? "white" : "#9AA6BD",
+            fontWeight: "900",
+          }}
+        >
+          cm
+        </Text>
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setHeightUnit("ft")}
         activeOpacity={0.9}
-        style={[styles.unitBtn, { backgroundColor: heightUnit === "ft" ? "#FF4D2D" : "transparent" }]}
+        style={[
+          styles.unitBtn,
+          { backgroundColor: heightUnit === "ft" ? "#FF4D2D" : "transparent" },
+        ]}
       >
-        <Text style={{ color: heightUnit === "ft" ? "white" : "#9AA6BD", fontWeight: "900" }}>ft</Text>
+        <Text
+          style={{
+            color: heightUnit === "ft" ? "white" : "#9AA6BD",
+            fontWeight: "900",
+          }}
+        >
+          ft
+        </Text>
       </TouchableOpacity>
     </View>
   );
