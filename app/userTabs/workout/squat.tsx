@@ -253,26 +253,40 @@ export default function SquatChallenge() {
   const save = async () => {
     try {
       setSaving(true);
+      const withTimeout = <T,>(promise: PromiseLike<T>, ms: number): Promise<T> => {
+        let t: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<T>((_, reject) => {
+          t = setTimeout(() => reject(new Error("Save timed out")), ms);
+        });
+        return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
+          if (t) clearTimeout(t);
+        });
+      };
+
       const {
         data: { user },
         error: userErr,
-      } = await supabase.auth.getUser();
+      } = await withTimeout(supabase.auth.getUser(), 10000);
 
       if (userErr) throw userErr;
       if (!user) throw new Error("You must be logged in.");
 
-      const { error } = await supabase.from("challenge_scores").insert({
+      const { error } = await withTimeout(
+        supabase.from("challenge_scores").insert({
         challenge_key: "squat",
         user_id: user.id,
         score: count,
         reps_completed: count,
         difficulty_level: "normal",
-      });
+        }),
+        15000
+      );
 
       if (error) throw error;
 
       Alert.alert("Saved", `You saved ${count} squats!`, [{ text: "OK", onPress: () => retry() }]);
     } catch (e: any) {
+      console.log("challenge_scores save failed", e);
       Alert.alert("Save failed", e?.message || "Please try again.");
     } finally {
       setSaving(false);

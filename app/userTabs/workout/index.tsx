@@ -166,7 +166,7 @@ export default function WorkoutHome() {
         <ActionCard
           icon="trophy-outline"
           title="Challenges"
-          subtitle="Push-up challenge & squat leaderboard"
+          subtitle="Squat challenge & leaderboard"
           onPress={() => router.push("/userTabs/workout/challenges")}
         />
 
