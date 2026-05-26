@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Alert, Pressable, Text, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
 import {
+  Delegate,
   MediapipeCamera,
   RunningMode,
   usePoseDetection,
@@ -153,10 +154,14 @@ export default function SquatChallenge() {
       onError,
     },
     RunningMode.LIVE_STREAM,
-    "pose_landmarker_lite",
+    "pose_landmarker_lite.task",
     {
       fpsMode: 20,
       numPoses: 1,
+      minPoseDetectionConfidence: 0.3,
+      minPosePresenceConfidence: 0.3,
+      minTrackingConfidence: 0.3,
+      delegate: Delegate.CPU,
     }
   );
 
