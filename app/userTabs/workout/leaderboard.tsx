@@ -28,22 +28,60 @@ export default function Leaderboard() {
         try {
             setLoading(true);
 
-            const { data, error } = await supabase
-                .from("squat_leaderboard_with_users")
-                .select("rank,user_name,best_score,average_score,total_attempts")
-                .order("rank", { ascending: true })
-                .limit(20);
+            const { data: scoreRows, error: scoreErr } = await supabase
+                .from("challenge_scores")
+                .select("user_id,score")
+                .eq("challenge_key", "squat")
+                .order("score", { ascending: false })
+                .order("created_at", { ascending: false })
+                .limit(200);
 
-            if (error) throw error;
+            if (scoreErr) throw scoreErr;
 
-            const mapped =
-                (data || []).map((r: any, idx: number) => ({
-                    rank: Number(r.rank || idx + 1),
-                    name: r.user_name || `User ${idx + 1}`,
-                    bestScore: Number(r.best_score || 0),
-                    averageScore: Number(r.average_score || 0),
-                    totalAttempts: Number(r.total_attempts || 0),
-                })) || [];
+            const userIds = Array.from(new Set((scoreRows || []).map((r: any) => r.user_id)));
+            const { data: profiles, error: profileErr } = userIds.length
+                ? await supabase.from("profiles").select("id,first_name").in("id", userIds)
+                : { data: [], error: null };
+
+            if (profileErr) throw profileErr;
+
+            const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.first_name]));
+            const stats = new Map<
+                string,
+                { name: string; bestScore: number; totalAttempts: number; sum: number }
+            >();
+
+            (scoreRows || []).forEach((row: any) => {
+                const userId = row.user_id as string;
+                const score = Number(row.score || 0);
+                const existing = stats.get(userId);
+                if (!existing) {
+                    stats.set(userId, {
+                        name: nameMap.get(userId) || "User",
+                        bestScore: score,
+                        totalAttempts: 1,
+                        sum: score,
+                    });
+                } else {
+                    existing.bestScore = Math.max(existing.bestScore, score);
+                    existing.totalAttempts += 1;
+                    existing.sum += score;
+                }
+            });
+
+            const mapped = Array.from(stats.values())
+                .map((s) => ({
+                    name: s.name,
+                    bestScore: s.bestScore,
+                    averageScore: s.totalAttempts ? Math.round(s.sum / s.totalAttempts) : 0,
+                    totalAttempts: s.totalAttempts,
+                }))
+                .sort((a, b) => b.bestScore - a.bestScore)
+                .slice(0, 20)
+                .map((r, idx) => ({
+                    rank: idx + 1,
+                    ...r,
+                }));
 
             setRows(mapped);
         } catch (e) {

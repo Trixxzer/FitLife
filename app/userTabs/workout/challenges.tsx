@@ -44,6 +44,23 @@ export default function Challenges() {
 
                 <TouchableOpacity
                     activeOpacity={0.9}
+                    style={styles.rowCard}
+                    onPress={() => router.push("/userTabs/workout/squat")}
+                >
+                    <View style={styles.leftIcon}>
+                        <Ionicons name="barbell-outline" size={18} color={ACCENT} />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.rowTitle}>Squat Challenge</Text>
+                        <Text style={styles.rowMeta}>Camera counts your reps • form focus</Text>
+                    </View>
+
+                    <Ionicons name="chevron-forward" size={18} color="#C7CFDD" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    activeOpacity={0.9}
                     style={[styles.primaryBtn, { marginTop: 14 }]}
                     onPress={() => router.push("/userTabs/workout/leaderboard")}
                 >

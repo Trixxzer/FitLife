@@ -96,10 +96,12 @@ export default function Gamification() {
           : Promise.resolve({ data: [] as any, error: null }),
 
         supabase
-          .from("squat_leaderboard_with_users")
-          .select("rank,user_name,best_score,average_score")
-          .order("rank", { ascending: true })
-          .limit(5),
+          .from("challenge_scores")
+          .select("user_id,score")
+          .eq("challenge_key", "squat")
+          .order("score", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(200),
 
         supabase
           .from("daily_workout_leaderboard_top")
@@ -122,7 +124,49 @@ export default function Gamification() {
       setStreaks(streakMap);
       setBadges((badgeRes.data || []) as BadgeRow[]);
       setEarned(new Set((earnedRes.data || []).map((r: any) => r.badge_id)));
-      setLeaders((leaderRes.data || []) as LeaderRow[]);
+      const leaderRows = (leaderRes.data || []) as Array<{ user_id: string; score: number }>;
+      const userIds = Array.from(new Set(leaderRows.map((r) => r.user_id)));
+      const { data: profiles, error: profileErr } = userIds.length
+        ? await supabase.from("profiles").select("id,first_name").in("id", userIds)
+        : { data: [], error: null };
+
+      if (profileErr) throw profileErr;
+
+      const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.first_name]));
+      const stats = new Map<
+        string,
+        { user_name: string; best_score: number; average_score: number; total: number; attempts: number }
+      >();
+
+      leaderRows.forEach((row) => {
+        const existing = stats.get(row.user_id);
+        if (!existing) {
+          stats.set(row.user_id, {
+            user_name: nameMap.get(row.user_id) || "User",
+            best_score: Number(row.score || 0),
+            average_score: 0,
+            total: Number(row.score || 0),
+            attempts: 1,
+          });
+        } else {
+          existing.best_score = Math.max(existing.best_score, Number(row.score || 0));
+          existing.total += Number(row.score || 0);
+          existing.attempts += 1;
+        }
+      });
+
+      const leadersMapped: LeaderRow[] = Array.from(stats.values())
+        .map((s, idx) => ({
+          rank: idx + 1,
+          user_name: s.user_name,
+          best_score: s.best_score,
+          average_score: s.attempts ? Math.round(s.total / s.attempts) : 0,
+        }))
+        .sort((a, b) => b.best_score - a.best_score)
+        .slice(0, 5)
+        .map((row, idx) => ({ ...row, rank: idx + 1 }));
+
+      setLeaders(leadersMapped);
       setDayLeaders((dayLeaderRes.data || []) as DayLeaderRow[]);
     } catch (e) {
       console.log("loadGamification error", e);
