@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
+import Svg, { Circle, Line } from "react-native-svg";
 import { supabase } from "../../../lib/supabase";
 import {
   Delegate,
   MediapipeCamera,
+  KnownPoseLandmarkConnections,
   RunningMode,
   usePoseDetection,
   type Landmark,
@@ -21,6 +23,8 @@ const ACCENT = "#FF4D2D";
 
 type Phase = "idle" | "counting" | "paused" | "finished";
 type RepState = "UP" | "DOWN";
+type PoseLine = { x1: number; y1: number; x2: number; y2: number };
+type PosePoint = { x: number; y: number };
 
 const LM = {
   L_HIP: 23,
@@ -34,8 +38,8 @@ const LM = {
 const MIN_CONFIDENCE = 0.4;
 const STAND_ANGLE = 165;
 const SQUAT_ANGLE = 95;
-const MAX_MISSING_MS = 1200;
-const INVALID_FRAMES_TO_PAUSE = 12;
+const MAX_MISSING_MS = 2400;
+const INVALID_FRAMES_TO_PAUSE = 24;
 
 function isValidLandmark(lm: Landmark | null | undefined) {
   if (!lm) return false;
@@ -97,6 +101,8 @@ export default function SquatChallenge() {
   const [count, setCount] = useState(0);
   const [statusText, setStatusText] = useState("Ready");
   const [debugText, setDebugText] = useState("");
+  const [poseLines, setPoseLines] = useState<PoseLine[]>([]);
+  const [posePoints, setPosePoints] = useState<PosePoint[]>([]);
   const [saving, setSaving] = useState(false);
 
   const lastLandmarkAt = useRef<number>(0);
@@ -111,10 +117,30 @@ export default function SquatChallenge() {
   const onResults = useCallback(
     (results: PoseDetectionResultBundle, _vc: ViewCoordinator) => {
       const now = Date.now();
+      const lms = results.results[0]?.landmarks?.[0] ?? [];
+      if (!lms.length) {
+        setPoseLines([]);
+        setPosePoints([]);
+        return;
+      }
+
       lastLandmarkAt.current = now;
 
-      const lms = results.results[0]?.landmarks?.[0] ?? [];
-      if (!lms.length) return;
+      const frameDims = _vc.getFrameDims(results);
+      const points = lms.map((p) => {
+        const pt = _vc.convertPoint(frameDims, p);
+        return { x: pt.x, y: pt.y };
+      });
+      const lines: PoseLine[] = [];
+      for (const connection of KnownPoseLandmarkConnections) {
+        const [a, b] = connection;
+        const pa = points[a];
+        const pb = points[b];
+        if (!pa || !pb) continue;
+        lines.push({ x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y });
+      }
+      setPosePoints(points);
+      setPoseLines(lines);
 
       if (!hasEnoughLowerBody(lms)) {
         invalidFrames.current += 1;
@@ -126,7 +152,7 @@ export default function SquatChallenge() {
       const kneeAngle = averageKneeAngle(lms);
       if (kneeAngle == null) return;
 
-      setDebugText(`Knee angle: ${Math.round(kneeAngle)} deg`);
+      setDebugText(`Knee angle: ${Math.round(kneeAngle)} deg • lm: ${lms.length} • miss: ${invalidFrames.current}`);
 
       if (phase !== "counting") return;
 
@@ -156,11 +182,11 @@ export default function SquatChallenge() {
     RunningMode.LIVE_STREAM,
     "pose_landmarker_lite.task",
     {
-      fpsMode: 20,
+      fpsMode: 15,
       numPoses: 1,
-      minPoseDetectionConfidence: 0.3,
-      minPosePresenceConfidence: 0.3,
-      minTrackingConfidence: 0.3,
+      minPoseDetectionConfidence: 0.15,
+      minPosePresenceConfidence: 0.15,
+      minTrackingConfidence: 0.15,
       delegate: Delegate.CPU,
     }
   );
@@ -306,6 +332,28 @@ export default function SquatChallenge() {
               )}
             </View>
           )}
+
+          <Svg
+            pointerEvents="none"
+            width="100%"
+            height="100%"
+            style={{ position: "absolute", left: 0, top: 0 }}
+          >
+            {poseLines.map((line, idx) => (
+              <Line
+                key={`l-${idx}`}
+                x1={line.x1}
+                y1={line.y1}
+                x2={line.x2}
+                y2={line.y2}
+                stroke="#6EC1FF"
+                strokeWidth={3}
+              />
+            ))}
+            {posePoints.map((pt, idx) => (
+              <Circle key={`p-${idx}`} cx={pt.x} cy={pt.y} r={5} fill="#FF4D2D" />
+            ))}
+          </Svg>
 
           <View
             pointerEvents="none"
