@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-<<<<<<< HEAD
   ActivityIndicator,
   Alert,
   RefreshControl,
@@ -10,16 +9,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-=======
-    ActivityIndicator,
-    Alert,
-    Image,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
->>>>>>> 8f2912f (Expo go version)
 } from "react-native";
 import { openStorageFile, TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
 import { supabase } from "../../lib/supabase";

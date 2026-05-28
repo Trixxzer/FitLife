@@ -198,32 +198,59 @@ export default function TrainerSignup() {
 
       if (error) throw error;
 
-      // ✅ Go to VerifyOtp with trainer payload
-      router.push({
-        pathname: "/auth/VerifyOtp",
-        params: {
+      const userId = data.user?.id;
+      if (!userId) throw new Error("No user returned");
+
+      const { error: profileErr } = await supabase.from("profiles").upsert(
+        {
+          id: userId,
           email: cleanEmail,
-
-          // role flags
+          first_name: fullName.trim(),
+          gender: (gender as any) ?? null,
+          age: age ? Number(age) : null,
           role: "TRAINER",
-          trainerApproved: "false",
-
-          // trainer info
-          fullName: fullName.trim(),
-          gender,
-          age,
-          bio: bio.trim(),
-          certTitle: certTitle.trim(),
-          certIssuer: certIssuer.trim(),
-          certYear: certYear.trim(),
-
-          // upload uris (VerifyOtp will upload after OTP verification)
-          photoUri: photoUri ?? "",
-          photoName: photoName ?? "trainer_photo.jpg",
-          certificateUri: certificateUri ?? "",
-          certificateName: certificateName ?? "certificate.pdf",
+          trainer_approved: false,
         },
+        { onConflict: "id" },
+      );
+
+      if (profileErr) throw profileErr;
+
+      const photoPath = `${userId}/photo.${extFromName(photoName ?? "") || "jpg"}`;
+      const certificatePath = `${userId}/certificate.${extFromName(certificateName ?? "") || "pdf"}`;
+
+      const uploadedPhotoPath = await uploadToSupabase({
+        bucket: "trainer_uploads",
+        path: photoPath,
+        uri: photoUri ?? "",
+        contentType: contentTypeFromName(photoName ?? "", "image/jpeg"),
       });
+
+      const uploadedCertPath = await uploadToSupabase({
+        bucket: "trainer_uploads",
+        path: certificatePath,
+        uri: certificateUri ?? "",
+        contentType: contentTypeFromName(
+          certificateName ?? "",
+          "application/pdf",
+        ),
+      });
+
+      const { error: appErr } = await supabase
+        .from("trainer_applications")
+        .insert({
+          user_id: userId,
+          full_name: fullName.trim(),
+          gender: (gender as any) ?? null,
+          age: age ? Number(age) : null,
+          bio: bio.trim() ? bio.trim() : null,
+          cert_title: certTitle.trim(),
+          cert_issuer: certIssuer.trim(),
+          cert_year: certYear.trim() ? Number(certYear) : null,
+          photo_path: uploadedPhotoPath,
+          certificate_path: uploadedCertPath,
+          status: "PENDING",
+        });
 
       if (appErr) throw appErr;
 

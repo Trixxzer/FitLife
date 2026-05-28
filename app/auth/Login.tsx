@@ -19,51 +19,66 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const canSubmit = useMemo(() => {
     if (!emailRegex.test(email.trim())) return false;
-    if (password.trim().length < 1) return false;
+    if (password.trim().length < 8) return false;
     return true;
   }, [email, password]);
 
   const handleLogin = async () => {
-    if (!canSubmit) {
-      Alert.alert("Check your details", "Please enter a valid email and password.");
+    if (!canSubmit || loading) {
+      Alert.alert(
+        "Check your details",
+        "Please enter a valid email and password.",
+      );
       return;
     }
+
     setLoading(true);
+
     try {
       const cleanEmail = email.trim().toLowerCase();
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password,
+        password: password.trim(),
       });
+
       if (error) throw error;
 
       const userId = data.user?.id;
-      if (!userId) throw new Error("No user returned");
+      if (!userId) throw new Error("No session returned");
 
-      const { data: profile, error: profErr } = await supabase
+      const { data: profile, error: profileErr } = await supabase
         .from("profiles")
         .select("role, trainer_approved")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
-      if (profErr) throw profErr;
+      if (profileErr) throw profileErr;
+
+      if (!profile) {
+        throw new Error("Profile not found. Please sign up first.");
+      }
 
       if (profile.role === "TRAINER" && !profile.trainer_approved) {
-        Alert.alert("Pending approval", "Your trainer account is waiting for admin approval.");
-        router.replace("/auth/Login");
+        router.replace("/trainerTabs/pending");
         return;
       }
 
-      // route based on role
-      if (profile.role === "TRAINER") router.replace("/trainerTabs/dashboard");
-      if (profile.role === "ADMIN") router.replace("/admin/admin");
-      else router.replace("/userTabs/diet");
+      if (profile.role === "TRAINER") {
+        router.replace("/trainerTabs/dashboard");
+        return;
+      }
+
+      if (profile.role === "ADMIN") {
+        router.replace("/admin/admin");
+        return;
+      }
+
+      router.replace("/userTabs/diet");
     } catch (e: any) {
       Alert.alert("Login failed", e?.message || "Please try again.");
     } finally {
@@ -72,7 +87,29 @@ export default function Login() {
   };
 
   const goToSignup = () => router.push("/auth/ChooseRole");
+  //   const changeEmailHardcoded = async () => {
+  //   try {
+  //     const { data, error } = await supabase.functions.invoke("update-email", {
+  //       body: {
+  //         userId: "eb39a499-2b20-4863-9029-847eb86847df",
+  //         newEmail: "amagar675@gmail.com",
+  //       },
+  //     });
 
+  //     if (error) throw error;
+
+  //     const { error: profileError } = await supabase
+  //       .from("profiles")
+  //       .update({ email: "amagar@gmail.com" })
+  //       .eq("id", "eb39a499-2b20-4863-9029-847eb86847df");
+
+  //     if (profileError) throw profileError;
+
+  //     Alert.alert("Success", "Email updated successfully");
+  //   } catch (err: any) {
+  //     Alert.alert("Error", err.message || "Something went wrong");
+  //   }
+  // };
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: "#0B0F1A" }}
@@ -87,9 +124,12 @@ export default function Login() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header row (Back + Title) */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backBtn}>
+          {/* <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.85}
+            style={styles.backBtn}
+          >
             <Ionicons name="arrow-back-outline" size={25} color="white" />
           </TouchableOpacity> */}
 
@@ -98,11 +138,11 @@ export default function Login() {
           </Text>
         </View>
 
-        {/* Main heading */}
         <Text style={styles.bigTitle}>Welcome back</Text>
-        <Text style={styles.subTitle}>Log in to continue your FitLife journey.</Text>
+        <Text style={styles.subTitle}>
+          Log in with your email and password.
+        </Text>
 
-        {/* Email */}
         <Text style={styles.label}>email</Text>
         <TextInput
           placeholder="e.g., you@gmail.com"
@@ -112,38 +152,20 @@ export default function Login() {
           style={styles.input}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
         />
 
-        {/* Password with eye toggle */}
-        <Text style={[styles.label, { marginTop: 16 }]}>password</Text>
-        <View style={styles.passwordWrap}>
-          <TextInput
-            placeholder="Enter your password"
-            placeholderTextColor="#6B7690"
-            value={password}
-            onChangeText={setPassword}
-            style={styles.passwordInput}
-            secureTextEntry={!showPass}
-            autoCapitalize="none"
-          />
+        <Text style={styles.label}>password</Text>
+        <TextInput
+          placeholder="Your password"
+          placeholderTextColor="#6B7690"
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+          secureTextEntry
+          autoCapitalize="none"
+        />
 
-          <TouchableOpacity
-            onPress={() => setShowPass((s) => !s)}
-            activeOpacity={0.85}
-            style={styles.eyeBtn}
-          >
-            <Ionicons name={showPass ? "eye-off-outline" : "eye-outline"} size={20} color="#D7DEEA" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Forgot Password */}
-        <TouchableOpacity
-          onPress={() => router.push("/auth/ForgotPassword")} style={{ marginTop: 12 }}
-        >
-          <Text style={{ color: "#9AA6BD", fontWeight: "800" }}>Forgot password?</Text>
-        </TouchableOpacity>
-
-        {/* Login button */}
         <TouchableOpacity
           onPress={handleLogin}
           disabled={!canSubmit || loading}
@@ -156,16 +178,28 @@ export default function Login() {
           {loading ? (
             <ActivityIndicator />
           ) : (
-            <Text style={{ color: "white", fontSize: 16, fontWeight: "900" }}>Log In</Text>
+            <Text style={{ color: "white", fontSize: 16, fontWeight: "900" }}>
+              Log In
+            </Text>
           )}
         </TouchableOpacity>
 
-        {/* Signup link */}
-        <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 18 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "center",
+            marginTop: 18,
+          }}
+        >
           <Text style={{ color: "#9AA6BD" }}>New to FitLife? </Text>
           <TouchableOpacity onPress={goToSignup} activeOpacity={0.85}>
-            <Text style={{ color: "#FFD3CA", fontWeight: "900" }}>Create an account</Text>
+            <Text style={{ color: "#FFD3CA", fontWeight: "900" }}>
+              Create an account
+            </Text>
           </TouchableOpacity>
+          {/* <TouchableOpacity onPress={changeEmailHardcoded} >
+  <Text style={{color: "#9AA6BD"}}>Change Email (Test)</Text>
+</TouchableOpacity> */}
         </View>
         <TouchableOpacity
           onPress={() => router.push("/auth/ForgotPassword")}
@@ -253,31 +287,6 @@ const styles = {
     backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: "#FF4D2D",
-  },
-  passwordWrap: {
-    height: 54,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#FF4D2D",
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    paddingLeft: 14,
-    overflow: "hidden" as const,
-  },
-  passwordInput: {
-    flex: 1,
-    height: "100%" as const,
-    color: "white",
-    paddingRight: 12,
-  },
-  eyeBtn: {
-    width: 48,
-    height: 54,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    borderLeftWidth: 1,
-    borderLeftColor: "#FF4D2D",
-    backgroundColor: "#111A2C",
   },
   cta: {
     marginTop: 22,
