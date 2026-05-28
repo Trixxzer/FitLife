@@ -4,7 +4,6 @@ import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const sendCode = async () => {
     const cleanEmail = email.trim().toLowerCase();
@@ -14,27 +13,14 @@ export default function ForgotPassword() {
       return;
     }
 
-    setLoading(true);
-
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: {
-          shouldCreateUser: false,
-        },
-      });
-
-      if (error) throw error;
-
       router.push({
-        pathname: "/auth/reset-verify",
+        pathname: "/auth/reset-password",
         params: { email: cleanEmail },
       });
     } catch (e: any) {
       Alert.alert("Failed", e.message);
     }
-
-    setLoading(false);
   };
 
   return (

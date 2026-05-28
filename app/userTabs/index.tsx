@@ -1,13 +1,46 @@
+// app/(tabs)/home.tsx
+// FitLife Home (User)
+
+import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Svg, { Circle } from "react-native-svg";
+import { TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
 import { supabase } from "../../lib/supabase";
+
+const EXERCISE_DAILY_GOAL_KCAL = 300;
+
+type DietLogRow = {
+  calories: number | null;
+  carbs: number | null;
+  protein: number | null;
+  fat: number | null;
+  created_at?: string;
+};
+
+type WorkoutLogRow = {
+  id: string;
+  title: string;
+  calories_burned: number | null;
+  total_duration_mins: number | null;
+  created_at?: string;
+};
+
+type TrainerRelation = {
+  trainer_id: string;
+  package_id: string | null;
+  status: "approved" | "pending" | "declined" | "ended";
+  created_at: string;
+};
 
 function getTrainerPhotoUrl(path?: string | null) {
   if (!path) return null;
@@ -22,110 +55,226 @@ function getTrainerPhotoUrl(path?: string | null) {
   return data.publicUrl;
 }
 
->>>>>>> e8600b5 (payment added)
 export default function Home() {
   const [loading, setLoading] = useState(true);
-
   const [userName, setUserName] = useState("User");
-  const [calorieGoal, setCalorieGoal] = useState(1800);
+  const [dailyCalorieGoal, setDailyCalorieGoal] = useState(2000);
 
-  const [consumed, setConsumed] = useState(0);
+  const [caloriesConsumed, setCaloriesConsumed] = useState(0);
   const [foodCount, setFoodCount] = useState(0);
 
-  const [exerciseMins, setExerciseMins] = useState(0);
-  const [exerciseCalories, setExerciseCalories] = useState(0);
-
-  const [trainerName, setTrainerName] = useState<string | null>(null);
-
   const [macros, setMacros] = useState({
-    carbs: 0,
-    protein: 0,
-    fat: 0,
+    carbs: { value: 0, max: 180 },
+    protein: { value: 0, max: 140 },
+    fat: { value: 0, max: 70 },
   });
 
-  const loadData = useCallback(async () => {
+  const [exercise, setExercise] = useState({
+    pct: 0,
+    updated: "No workouts logged yet",
+  });
+
+  const [latestWorkout, setLatestWorkout] = useState<WorkoutLogRow | null>(
+    null,
+  );
+
+  const [trainer, setTrainer] = useState({
+    name: "",
+    time: "",
+    price: "",
+    photoUrl: "",
+    hasTrainer: false,
+  });
+
+  const [trainerSummary, setTrainerSummary] = useState({
+    active: 0,
+    pending: 0,
+  });
+
+  const caloriesRemaining = Math.max(0, dailyCalorieGoal - caloriesConsumed);
+  const caloriePct = clamp(caloriesConsumed / dailyCalorieGoal, 0, 1);
+
+  const loadDashboard = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      setLoading(true);
 
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
 
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
+      if (userErr) throw userErr;
 
-      const startISO = todayStart.toISOString();
-      const endISO = todayEnd.toISOString();
-
-      // 🔹 PROFILE
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("first_name, calorie_goal")
-        .eq("id", user.id)
-        .single();
-
-      if (profile) {
-        setUserName(profile.first_name || "User");
-        setCalorieGoal(profile.calorie_goal || 1800);
+      if (!user) {
+        setUserName("User");
+        setCaloriesConsumed(0);
+        setFoodCount(0);
+        setLatestWorkout(null);
+        setTrainer({
+          name: "",
+          time: "",
+          price: "",
+          photoUrl: "",
+          hasTrainer: false,
+        });
+        setTrainerSummary({ active: 0, pending: 0 });
+        return;
       }
 
-      // 🔹 DIET LOGS
-      const { data: diet } = await supabase
-        .from("diet_logs")
-        .select("calories, carbs, protein, fat, created_at")
-        .eq("user_id", user.id)
-        .gte("created_at", startISO)
-        .lte("created_at", endISO);
+      const now = new Date();
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
 
-      if (diet) {
-        const totalCalories = diet.reduce((s, d) => s + (d.calories || 0), 0);
-        const carbs = diet.reduce((s, d) => s + (d.carbs || 0), 0);
-        const protein = diet.reduce((s, d) => s + (d.protein || 0), 0);
-        const fat = diet.reduce((s, d) => s + (d.fat || 0), 0);
+      const startIso = startOfDay.toISOString();
+      const endIso = endOfDay.toISOString();
 
-        setConsumed(totalCalories);
-        setFoodCount(diet.length);
-        setMacros({ carbs, protein, fat });
-      }
-
-      // 🔹 WORKOUT LOGS
-      const { data: workouts } = await supabase
-        .from("workout_logs")
-        .select("total_duration_mins, calories_burned, created_at")
-        .eq("user_id", user.id)
-        .gte("created_at", startISO)
-        .lte("created_at", endISO);
-
-      if (workouts) {
-        const mins = workouts.reduce((s, w) => s + (w.total_duration_mins || 0), 0);
-        const burned = workouts.reduce((s, w) => s + (w.calories_burned || 0), 0);
-
-        setExerciseMins(mins);
-        setExerciseCalories(burned);
-      }
-
-      // 🔹 TRAINER
-      const { data: relation } = await supabase
-        .from("user_trainers")
-        .select("trainer_id, status")
-        .eq("user_id", user.id)
-        .eq("status", "approved")
-        .maybeSingle();
-
-      if (relation?.trainer_id) {
-        const { data: trainer } = await supabase
+      const [profileRes, dietRes, workoutRes, trainerRes] = await Promise.all([
+        supabase
           .from("profiles")
-          .select("first_name")
-          .eq("id", relation.trainer_id)
-          .single();
+          .select("first_name, calorie_goal")
+          .eq("id", user.id)
+          .maybeSingle(),
 
-        setTrainerName(trainer?.first_name || "Trainer");
+        supabase
+          .from("diet_logs")
+          .select("calories, carbs, protein, fat, created_at")
+          .eq("user_id", user.id)
+          .gte("created_at", startIso)
+          .lt("created_at", endIso),
+
+        supabase
+          .from("workout_logs")
+          .select("id, title, calories_burned, total_duration_mins, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("user_trainers")
+          .select("trainer_id, package_id, status, created_at")
+          .eq("user_id", user.id)
+          .in("status", ["approved", "pending"])
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (profileRes.error) throw profileRes.error;
+      if (dietRes.error) throw dietRes.error;
+      if (workoutRes.error) throw workoutRes.error;
+      if (trainerRes.error) throw trainerRes.error;
+
+      const profile = profileRes.data;
+      setUserName(profile?.first_name?.trim() || "User");
+
+      const goal = Number(profile?.calorie_goal || 2000);
+      setDailyCalorieGoal(goal);
+
+      const dietLogs = (dietRes.data || []) as DietLogRow[];
+      const consumed = dietLogs.reduce(
+        (sum, row) => sum + Number(row.calories || 0),
+        0,
+      );
+      const carbs = dietLogs.reduce(
+        (sum, row) => sum + Number(row.carbs || 0),
+        0,
+      );
+      const protein = dietLogs.reduce(
+        (sum, row) => sum + Number(row.protein || 0),
+        0,
+      );
+      const fat = dietLogs.reduce((sum, row) => sum + Number(row.fat || 0), 0);
+
+      setCaloriesConsumed(Math.round(consumed));
+      setFoodCount(dietLogs.length);
+      setMacros({
+        carbs: { value: Math.round(carbs), max: 180 },
+        protein: { value: Math.round(protein), max: 140 },
+        fat: { value: Math.round(fat), max: 70 },
+      });
+
+      const workouts = (workoutRes.data || []) as WorkoutLogRow[];
+      const todaysWorkouts = workouts.filter((w) => {
+        if (!w.created_at) return false;
+        return w.created_at >= startIso && w.created_at < endIso;
+      });
+
+      const totalExerciseCalories = todaysWorkouts.reduce(
+        (sum, row) => sum + Number(row.calories_burned || 0),
+        0,
+      );
+
+      const newestWorkout = workouts[0] || null;
+      setLatestWorkout(newestWorkout);
+      setExercise({
+        pct: clamp(totalExerciseCalories / EXERCISE_DAILY_GOAL_KCAL, 0, 1),
+        updated: newestWorkout?.created_at
+          ? `Last updated ${formatRelativeTime(newestWorkout.created_at)}`
+          : "No workouts logged yet",
+      });
+
+      const trainerRows = (trainerRes.data || []) as TrainerRelation[];
+      const approvedRows = trainerRows.filter(
+        (row) => row.status === "approved",
+      );
+      const pendingRows = trainerRows.filter((row) => row.status === "pending");
+
+      setTrainerSummary({
+        active: approvedRows.length,
+        pending: pendingRows.length,
+      });
+
+      const latestApproved = approvedRows[0];
+
+      if (!latestApproved) {
+        setTrainer({
+          name: "",
+          time:
+            pendingRows.length > 0 ? "Request pending" : "No active trainer",
+          price: "",
+          photoUrl: "",
+          hasTrainer: false,
+        });
       } else {
-        setTrainerName(null);
-      }
+        const [trainerProfileRes, packageRes] = await Promise.all([
+          supabase
+            .from("trainer_profiles")
+            .select("full_name, photo_path")
+            .eq("trainer_id", latestApproved.trainer_id)
+            .maybeSingle(),
 
-    } catch (e) {
-      console.log("Home error:", e);
+          latestApproved.package_id
+            ? supabase
+                .from("trainer_packages")
+                .select("price")
+                .eq("id", latestApproved.package_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
+
+        if (trainerProfileRes.error) throw trainerProfileRes.error;
+        if (packageRes.error) throw packageRes.error;
+
+        const trainerName =
+          trainerProfileRes.data?.full_name?.trim() || "Your Trainer";
+
+        const trainerPhotoUrl =
+          getTrainerPhotoUrl(trainerProfileRes.data?.photo_path) || "";
+
+        const packagePrice = Number(packageRes.data?.price || 0);
+
+        setTrainer({
+          name: trainerName,
+          time: `Since ${formatShortDate(latestApproved.created_at)}`,
+          price:
+            packagePrice > 0
+              ? `${formatCurrency(packagePrice)}/mo`
+              : "Active plan",
+          photoUrl: trainerPhotoUrl,
+          hasTrainer: true,
+        });
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to load dashboard data.");
     } finally {
       setLoading(false);
     }
@@ -133,21 +282,35 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      loadData();
-    }, [loadData])
+      loadDashboard();
+    }, [loadDashboard]),
   );
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: "#0B0F1A", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator color="#FF4D2D" />
-      </View>
-    );
-  }
-
-  const remaining = Math.max(0, calorieGoal - consumed);
-  const pct = clamp(consumed / calorieGoal, 0, 1);
+  const extras = useMemo(
+    () => [
+      {
+        icon: "restaurant-outline",
+        label: "Foods Logged",
+        value: `${foodCount}`,
+      },
+      {
+        icon: "barbell-outline",
+        label: "Workout Goal",
+        value: `${Math.round(exercise.pct * 100)}%`,
+      },
+      {
+        icon: "person-outline",
+        label: "Active Trainer",
+        value: `${trainerSummary.active}`,
+      },
+      {
+        icon: "time-outline",
+        label: "Pending Requests",
+        value: `${trainerSummary.pending}`,
+      },
+    ],
+    [exercise.pct, foodCount, trainerSummary.active, trainerSummary.pending],
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
@@ -369,31 +532,6 @@ export default function Home() {
             ))}
           </View>
         </View>
-    <ScrollView style={{ flex: 1, backgroundColor: "#0B0F1A", padding: 16 }}>
-
-      <Text style={{ color: "#FF4D2D", fontSize: 20, fontWeight: "900" }}>
-        Hello, {userName}
-      </Text>
-
-      <Text style={{ color: "#9AA6BD", marginBottom: 16 }}>
-        Welcome to FitLife
-      </Text>
-
-      <Text style={{ color: "white", fontWeight: "900" }}>
-        {remaining} kcal remaining
-      </Text>
-
-      <Text style={{ color: "#9AA6BD" }}>
-        Food logs: {foodCount}
-      </Text>
-
-      <Text style={{ color: "#9AA6BD" }}>
-        Exercise: {exerciseMins} mins / {exerciseCalories} kcal
-      </Text>
-
-      <Text style={{ color: "#9AA6BD", marginTop: 10 }}>
-        Trainer: {trainerName || "No trainer yet"}
-      </Text>
 
         <View style={[styles.card, { marginTop: 12 }]}>
           <View
@@ -493,26 +631,207 @@ function MacroRow({
         <Text style={{ color: "#9AA6BD", fontSize: 12 }}>{label}</Text>
         <Text style={{ color: "#9AA6BD", fontSize: 12 }}>
           {value}/{max}g
-      <TouchableOpacity
-        onPress={() => router.push("/userTabs/trainer")}
-        style={{
-          marginTop: 20,
-          padding: 12,
-          backgroundColor: "#FF4D2D",
-          borderRadius: 10,
-        }}
-      >
-        <Text style={{ color: "white", fontWeight: "900" }}>
-          Go to Trainer
         </Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </View>
+      <View style={styles.barTrack}>
+        <View style={[styles.barFill, { width: `${pct * 100}%` }]} />
+      </View>
+    </View>
+  );
+}
+
+function MiniInfo({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+      <Ionicons name={icon as any} size={14} color="#9AA6BD" />
+      <Text style={{ color: "#9AA6BD", fontWeight: "500", fontSize: 12 }}>
+        {text}
+      </Text>
+    </View>
   );
 }
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
-<<<<<<< HEAD
 }
-=======
+
+function formatRelativeTime(dateValue: string) {
+  const date = new Date(dateValue);
+  const diffMs = Date.now() - date.getTime();
+  if (Number.isNaN(diffMs)) return "recently";
+
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+
+  if (diffMs < hourMs) {
+    const minutes = Math.max(1, Math.floor(diffMs / minuteMs));
+    return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
+  }
+
+  if (diffMs < dayMs) {
+    const hours = Math.max(1, Math.floor(diffMs / hourMs));
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  const days = Math.max(1, Math.floor(diffMs / dayMs));
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
+
+function formatShortDate(dateValue: string) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "recently";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "NPR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+const styles = {
+  headerCard: {
+    marginTop: 40,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: "#111A2C",
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+  },
+
+  hello: { color: "#FF4D2D", fontWeight: "900" as const, fontSize: 18 },
+  welcome: { color: "#9AA6BD", marginTop: 2, fontSize: 12 },
+
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: "#E6E6E6",
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    color: "#FF4D2D",
+    fontWeight: "900" as const,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+
+  card: {
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: "#111A2C",
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+  },
+
+  cardTitle: {
+    color: "#AEB8CA",
+    fontWeight: "900" as const,
+    fontSize: 12,
+    letterSpacing: 0.6,
+  },
+
+  barTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#2B3446",
+    overflow: "hidden" as const,
+  },
+
+  barFill: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#FF4D2D",
+  },
+
+  trainerAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 999,
+    backgroundColor: "#E6E6E6",
+    overflow: "hidden" as const,
+  },
+
+  chatIcon: {
+    width: 44,
+    height: 30,
+    borderRadius: 10,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: "rgba(255,77,45,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,77,45,0.25)",
+  },
+
+  smallBtn: {
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: "#0F1627",
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+  },
+
+  statTile: {
+    width: "48%" as const,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: "#0F1627",
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+  },
+
+  addBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 34,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,77,45,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,77,45,0.25)",
+  },
+
+  weightPlaceholder: {
+    marginTop: 12,
+    height: 110,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+    backgroundColor: "#0F1627",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    paddingHorizontal: 14,
+  },
+
+  nextRow: {
+    marginTop: 12,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: "#0F1627",
+    borderWidth: 1,
+    borderColor: "#1F2A44",
+  },
+
+  nextIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: "rgba(255,77,45,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,77,45,0.25)",
+  },
+};

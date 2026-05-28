@@ -47,72 +47,50 @@ export default function AdminPage() {
   const [adminId, setAdminId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Status | "ALL">("PENDING");
 
-    useEffect(() => {
-        init();
-    }, []);
-
-    async function init() {
-        try {
-            setLoading(true);
-
-            const {
-                data: { user },
-                error: userErr,
-            } = await supabase.auth.getUser();
-
-            if (userErr) throw userErr;
-
-            if (!user) {
-                Alert.alert("Not logged in", "Please log in first.");
-                router.replace("/auth/Login");
-                return;
-            }
-
-        setAdminId(user.id);
-            setAdminId(user.id);
-
-        const { data: profile, error: profileErr } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-            const { data: profile, error: profileErr } = await supabase
-                .from("profiles")
-                .select("role")
-                .eq("id", user.id)
-                .single();
-
-        if (profileErr) throw profileErr;
-            if (profileErr) throw profileErr;
-
-        if (profile?.role !== "ADMIN") {
-          Alert.alert("Access denied", "This page is only for admins.");
-          router.back();
-          return;
-        }
-            if (profile?.role !== "ADMIN") {
-                Alert.alert("Access denied", "This page is only for admins.");
-                router.back();
-                return;
-            }
-
-        await loadApplications();
-      } catch (e: any) {
-        Alert.alert("Error", e?.message || "Failed to load admin page.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    run();
+  useEffect(() => {
+    init();
   }, []);
-            await loadApplications();
-        } catch (e: any) {
-            Alert.alert("Error", e?.message || "Failed to load admin page.");
-        } finally {
-            setLoading(false);
-        }
+
+  async function init() {
+    try {
+      setLoading(true);
+
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+
+      if (userErr) throw userErr;
+
+      if (!user) {
+        Alert.alert("Not logged in", "Please log in first.");
+        router.replace("/auth/Login");
+        return;
+      }
+
+      setAdminId(user.id);
+
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileErr) throw profileErr;
+
+      if (profile?.role !== "ADMIN") {
+        Alert.alert("Access denied", "This page is only for admins.");
+        router.back();
+        return;
+      }
+
+      await loadApplications();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to load admin page.");
+    } finally {
+      setLoading(false);
     }
+  }
 
   async function loadApplications() {
     const { data, error } = await supabase
@@ -606,159 +584,159 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = {
-    headerRow: {
-        marginTop: 40,
-        flexDirection: "row" as const,
-        alignItems: "center" as const,
-        justifyContent: "space-between" as const,
-    },
-    headerTitle: {
-        color: "white",
-        fontWeight: "900" as const,
-        fontSize: 16,
-    },
-    iconBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        backgroundColor: CARD,
-        borderWidth: 1,
-        borderColor: BORDER,
-    },
-    pageTitle: {
-        color: "white",
-        fontSize: 28,
-        fontWeight: "900" as const,
-        marginTop: 18,
-    },
-    pageSub: {
-        color: MUTED,
-        marginTop: 6,
-    },
-    summaryCard: {
-        marginTop: 18,
-        borderRadius: 20,
-        backgroundColor: CARD,
-        borderWidth: 1,
-        borderColor: BORDER,
-        padding: 14,
-        flexDirection: "row" as const,
-        justifyContent: "space-between" as const,
-    },
-    summaryBox: {
-        flex: 1,
-        alignItems: "center" as const,
-    },
-    summaryValue: {
-        color: ACCENT,
-        fontSize: 22,
-        fontWeight: "900" as const,
-    },
-    summaryLabel: {
-        color: MUTED,
-        marginTop: 4,
-        fontSize: 12,
-    },
-    filterRow: {
-        flexDirection: "row" as const,
-        gap: 10,
-        marginTop: 14,
-        flexWrap: "wrap" as const,
-    },
-    filterPill: {
-        height: 40,
-        paddingHorizontal: 14,
-        borderRadius: 999,
-        borderWidth: 1.2,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-    },
-    emptyCard: {
-        borderRadius: 20,
-        backgroundColor: CARD,
-        borderWidth: 1,
-        borderColor: BORDER,
-        padding: 20,
-        alignItems: "center" as const,
-    },
-    card: {
-        borderRadius: 20,
-        backgroundColor: CARD,
-        borderWidth: 1,
-        borderColor: BORDER,
-        padding: 16,
-    },
-    topRow: {
-        flexDirection: "row" as const,
-        alignItems: "center" as const,
-        justifyContent: "space-between" as const,
-        gap: 12,
-    },
-    cardTitle: {
-        color: "white",
-        fontWeight: "900" as const,
-        fontSize: 18,
-    },
-    cardMeta: {
-        color: MUTED,
-        marginTop: 4,
-        fontSize: 12,
-    },
-    infoLabel: {
-        color: "#6B7690",
-        fontWeight: "800" as const,
-        fontSize: 12,
-    },
-    infoValue: {
-        color: "white",
-        marginTop: 4,
-        fontSize: 14,
-    },
-    smallDate: {
-        color: MUTED,
-        marginTop: 12,
-        fontSize: 12,
-    },
-    fileRow: {
-        flexDirection: "row" as const,
-        gap: 10,
-        marginTop: 14,
-    },
-    fileBtn: {
-        flex: 1,
-        height: 46,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: BORDER,
-        backgroundColor: "rgba(255,255,255,0.04)",
-        flexDirection: "row" as const,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        gap: 8,
-    },
-    fileText: {
-        color: "white",
-        fontWeight: "800" as const,
-    },
-    actionRow: {
-        flexDirection: "row" as const,
-        gap: 10,
-        marginTop: 16,
-    },
-    actionBtn: {
-        flex: 1,
-        height: 50,
-        borderRadius: 14,
-        borderWidth: 1,
-        alignItems: "center" as const,
-        justifyContent: "center" as const,
-        flexDirection: "row" as const,
-        gap: 8,
-    },
-    actionText: {
-        fontWeight: "900" as const,
-        fontSize: 14,
-    },
+  headerRow: {
+    marginTop: 40,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+  },
+  headerTitle: {
+    color: "white",
+    fontWeight: "900" as const,
+    fontSize: 16,
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  pageTitle: {
+    color: "white",
+    fontSize: 28,
+    fontWeight: "900" as const,
+    marginTop: 18,
+  },
+  pageSub: {
+    color: MUTED,
+    marginTop: 6,
+  },
+  summaryCard: {
+    marginTop: 18,
+    borderRadius: 20,
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 14,
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+  },
+  summaryBox: {
+    flex: 1,
+    alignItems: "center" as const,
+  },
+  summaryValue: {
+    color: ACCENT,
+    fontSize: 22,
+    fontWeight: "900" as const,
+  },
+  summaryLabel: {
+    color: MUTED,
+    marginTop: 4,
+    fontSize: 12,
+  },
+  filterRow: {
+    flexDirection: "row" as const,
+    gap: 10,
+    marginTop: 14,
+    flexWrap: "wrap" as const,
+  },
+  filterPill: {
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1.2,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  emptyCard: {
+    borderRadius: 20,
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 20,
+    alignItems: "center" as const,
+  },
+  card: {
+    borderRadius: 20,
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 16,
+  },
+  topRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    gap: 12,
+  },
+  cardTitle: {
+    color: "white",
+    fontWeight: "900" as const,
+    fontSize: 18,
+  },
+  cardMeta: {
+    color: MUTED,
+    marginTop: 4,
+    fontSize: 12,
+  },
+  infoLabel: {
+    color: "#6B7690",
+    fontWeight: "800" as const,
+    fontSize: 12,
+  },
+  infoValue: {
+    color: "white",
+    marginTop: 4,
+    fontSize: 14,
+  },
+  smallDate: {
+    color: MUTED,
+    marginTop: 12,
+    fontSize: 12,
+  },
+  fileRow: {
+    flexDirection: "row" as const,
+    gap: 10,
+    marginTop: 14,
+  },
+  fileBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    gap: 8,
+  },
+  fileText: {
+    color: "white",
+    fontWeight: "800" as const,
+  },
+  actionRow: {
+    flexDirection: "row" as const,
+    gap: 10,
+    marginTop: 16,
+  },
+  actionBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    flexDirection: "row" as const,
+    gap: 8,
+  },
+  actionText: {
+    fontWeight: "900" as const,
+    fontSize: 14,
+  },
 };
