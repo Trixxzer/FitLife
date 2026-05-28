@@ -14,6 +14,7 @@ import {
     View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -76,6 +77,7 @@ function FeatureChip({ text, active }: { text: string; active: boolean }) {
 }
 
 export default function TrainerPackagesPage() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 24 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -344,7 +346,7 @@ export default function TrainerPackagesPage() {
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -647,10 +649,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG,
   },
-  container: {
-    padding: 16,
-    paddingBottom: 20,
-  },
+  container: {},
   loaderWrap: {
     flex: 1,
     backgroundColor: BG,

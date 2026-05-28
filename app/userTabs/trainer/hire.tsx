@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const BG = "#0B0F1A";
 const CARD = "#111A2C";
@@ -82,6 +83,7 @@ function formatMoney(value: number | null | undefined) {
 }
 
 export default function HireTrainerPage() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 24 });
   const params = useLocalSearchParams();
 
   const trainerId = normalizeParam(
@@ -633,7 +635,7 @@ export default function HireTrainerPage() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: BG }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+      contentContainerStyle={contentContainerStyle}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerCard}>

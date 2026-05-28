@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../../../lib/supabase";
+import { useResponsiveLayout } from "../../../../lib/useResponsiveLayout";
 
 const BG = "#0B0F1A";
 const CARD = "#111A2C";
@@ -27,6 +28,7 @@ type MessageRow = {
 };
 
 export default function TrainerClientChatThread() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 12, maxWidth: 900 });
   const params = useLocalSearchParams<{ threadId?: string }>();
   const threadId = String(params.threadId || "").trim();
 
@@ -172,7 +174,7 @@ export default function TrainerClientChatThread() {
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12 }}
+        contentContainerStyle={contentContainerStyle}
       >
         {messages.length === 0 ? (
           <View

@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
@@ -21,6 +22,7 @@ type WorkoutLog = {
 };
 
 export default function WorkoutHistory() {
+    const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
     const [loading, setLoading] = useState(true);
     const [logs, setLogs] = useState<WorkoutLog[]>([]);
 
@@ -98,7 +100,7 @@ export default function WorkoutHistory() {
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={contentContainerStyle} showsVerticalScrollIndicator={false}>
                 <View style={styles.headerRow}>
                     <TouchableOpacity activeOpacity={0.9} style={styles.iconBtn} onPress={() => router.back()}>
                         <Ionicons name="arrow-back-outline" size={22} color="white" />

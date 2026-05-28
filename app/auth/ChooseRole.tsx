@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useNavigation } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 type Role = "user" | "trainer";
 
 export default function ChooseRole() {
+  const { contentContainerStyle } = useResponsiveLayout({ maxWidth: 640 });
   const navigation = useNavigation();
   const [role, setRole] = useState<Role | null>(null);
 
@@ -27,7 +29,7 @@ export default function ChooseRole() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
-      <View style={{ flex: 1, padding: 20 }}>
+      <View style={[contentContainerStyle, { flex: 1 }]}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", marginTop: 30 }}>
           <TouchableOpacity

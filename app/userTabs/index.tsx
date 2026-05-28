@@ -1,6 +1,3 @@
-// app/(tabs)/home.tsx
-// FitLife Home (User)
-
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -16,6 +13,7 @@ import {
 import Svg, { Circle } from "react-native-svg";
 import { TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 const EXERCISE_DAILY_GOAL_KCAL = 300;
 
@@ -56,6 +54,7 @@ function getTrainerPhotoUrl(path?: string | null) {
 }
 
 export default function Home() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("User");
   const [dailyCalorieGoal, setDailyCalorieGoal] = useState(2000);
@@ -315,7 +314,7 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerCard}>
@@ -355,7 +354,14 @@ export default function Home() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>CALORIES</Text>
 
-          <View style={{ flexDirection: "row", marginTop: 12, gap: 14 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              marginTop: 12,
+              gap: 14,
+              alignItems: "center",
+            }}
+          >
             <View
               style={{
                 width: 120,
@@ -365,14 +371,14 @@ export default function Home() {
               }}
             >
               <ProgressRing size={116} stroke={10} progress={caloriePct} />
-              <View style={{ position: "absolute", alignItems: "center" }}>
+              <View style={styles.ringCenter}>
                 <Text
                   style={{ color: "white", fontWeight: "900", fontSize: 18 }}
                 >
                   {caloriesRemaining}cal
                 </Text>
                 <Text style={{ color: "#9AA6BD", fontSize: 12 }}>
-                  Remaining
+                  Completed
                 </Text>
               </View>
             </View>
@@ -477,7 +483,7 @@ export default function Home() {
                 }}
               >
                 <ProgressRing size={116} stroke={10} progress={exercise.pct} />
-                <View style={{ position: "absolute", alignItems: "center" }}>
+                <View style={styles.ringCenter}>
                   <Ionicons name="walk-outline" size={28} color="white" />
                 </View>
               </View>
@@ -833,5 +839,15 @@ const styles = {
     backgroundColor: "rgba(255,77,45,0.12)",
     borderWidth: 1,
     borderColor: "rgba(255,77,45,0.25)",
+  },
+
+  ringCenter: {
+    position: "absolute" as const,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
 };

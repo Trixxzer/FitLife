@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 const ORANGE = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -18,6 +19,7 @@ const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
 export default function TrainerDashboard() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 24 });
   const [loading, setLoading] = useState(true);
   const [trainerName, setTrainerName] = useState("Trainer");
   const [sessions, setSessions] = useState(0);
@@ -172,7 +174,7 @@ export default function TrainerDashboard() {
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerCard}>

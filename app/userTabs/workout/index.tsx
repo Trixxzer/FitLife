@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
@@ -19,6 +20,7 @@ type WorkoutLog = {
 };
 
 export default function WorkoutHome() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [workoutsToday, setWorkoutsToday] = useState<WorkoutLog[]>([]);
@@ -78,7 +80,7 @@ export default function WorkoutHome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={contentContainerStyle} showsVerticalScrollIndicator={false}>
         <View style={styles.headerCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.hello}>Workout</Text>

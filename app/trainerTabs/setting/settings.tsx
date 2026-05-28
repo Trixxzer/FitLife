@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 type TrainerProfile = {
   id: string;
@@ -69,6 +70,7 @@ function Item({
 }
 
 export default function TrainerSettings() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 40, paddingBottom: 24 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
@@ -244,7 +246,7 @@ export default function TrainerSettings() {
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -453,7 +455,7 @@ export default function TrainerSettings() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#0B0F1A" },
-  container: { padding: 16, paddingBottom: 20 },
+  container: {},
   loaderWrap: {
     flex: 1,
     backgroundColor: "#0B0F1A",

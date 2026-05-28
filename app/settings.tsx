@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../lib/supabase";
+import { useResponsiveLayout } from "../lib/useResponsiveLayout";
 import {
   applyReminderSet,
   formatReminderTime,
@@ -75,6 +76,7 @@ function Item({ icon, title, subtitle, onPress }: ItemProps) {
 }
 
 export default function Settings() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 40 });
   const [loading, setLoading] = useState(true);
   const [savingPhone, setSavingPhone] = useState(false);
 
@@ -421,7 +423,7 @@ export default function Settings() {
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>Settings</Text>
@@ -804,10 +806,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0B0F1A",
   },
-  container: {
-    padding: 16,
-    paddingBottom: 20,
-  },
+  container: {},
   title: {
     color: "white",
     fontSize: 28,

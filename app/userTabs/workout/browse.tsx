@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
@@ -18,6 +19,7 @@ type WorkoutRow = {
 };
 
 export default function BrowseWorkouts() {
+    const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 40 });
     const [loading, setLoading] = useState(true);
     const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
 
@@ -55,7 +57,7 @@ export default function BrowseWorkouts() {
 
     return (
         <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={contentContainerStyle} showsVerticalScrollIndicator={false}>
                 <View style={styles.headerCard}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.hello}>Browse</Text>

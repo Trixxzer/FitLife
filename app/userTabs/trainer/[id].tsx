@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { TRAINER_UPLOADS_BUCKET } from "../../../lib/storage";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const BG = "#0B0F1A";
 const CARD = "#111A2C";
@@ -33,6 +34,7 @@ function getPublicFileUrl(path?: string | null) {
 }
 
 export default function TrainerProfilePage() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
   const { id } = useLocalSearchParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [trainer, setTrainer] = useState<any>(null);
@@ -133,7 +135,7 @@ export default function TrainerProfilePage() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: BG }}
-      contentContainerStyle={{ padding: 16 }}
+      contentContainerStyle={contentContainerStyle}
     >
       <TouchableOpacity
         onPress={() => router.back()}

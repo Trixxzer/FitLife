@@ -1,21 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-<<<<<<< HEAD
-import { Tabs } from "expo-router";
-import React from "react";
-=======
 import { router, Tabs, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { supabase } from "../../lib/supabase";
->>>>>>> e8600b5 (payment added)
 
 const ORANGE = "#FF4D2D";
 const MUTED = "#9AA6BD";
 const BG = "#0B0F1A";
 
 export default function TrainerTabsLayout() {
-<<<<<<< HEAD
-=======
   const [loading, setLoading] = useState(true);
   const [approved, setApproved] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -61,7 +54,7 @@ export default function TrainerTabsLayout() {
     } finally {
       setLoading(false);
     }
-  }, [checked]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -85,8 +78,6 @@ export default function TrainerTabsLayout() {
       </View>
     );
   }
-
->>>>>>> e8600b5 (payment added)
   return (
     <Tabs
       screenOptions={{
@@ -132,10 +123,7 @@ export default function TrainerTabsLayout() {
       <Tabs.Screen
         name="setting"
         options={{
-<<<<<<< HEAD
-=======
           href: approved ? "/trainerTabs/setting/settings" : null,
->>>>>>> e8600b5 (payment added)
           title: "Settings",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />

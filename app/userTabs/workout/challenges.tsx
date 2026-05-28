@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
@@ -9,9 +10,10 @@ const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
 export default function Challenges() {
+    const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 40 });
     return (
         <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={contentContainerStyle} showsVerticalScrollIndicator={false}>
                 <View style={styles.headerCard}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.hello}>Challenges</Text>

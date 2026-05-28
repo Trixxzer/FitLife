@@ -14,10 +14,16 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AdminLogin() {
+  const { contentContainerStyle } = useResponsiveLayout({
+    maxWidth: 520,
+    paddingTop: 40,
+    paddingBottom: 40,
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,7 +83,7 @@ export default function AdminLogin() {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>

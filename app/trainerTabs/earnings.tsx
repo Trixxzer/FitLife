@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 const BG = "#0B0F1A";
 const CARD = "#111A2C";
@@ -22,6 +23,7 @@ type PaymentRow = {
 };
 
 export default function Earnings() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 24 });
   const [loading, setLoading] = useState(true);
   const [monthTotal, setMonthTotal] = useState(0);
   const [activeClients, setActiveClients] = useState(0);
@@ -136,7 +138,7 @@ export default function Earnings() {
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>Earnings</Text>

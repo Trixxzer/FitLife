@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
@@ -47,6 +48,7 @@ type DietLogRow = {
 };
 
 export default function Diet() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
   const [userId, setUserId] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -321,7 +323,7 @@ export default function Diet() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={contentContainerStyle} showsVerticalScrollIndicator={false}>
         <View style={styles.headerCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.hello}>Diet</Text>
@@ -338,7 +340,7 @@ export default function Diet() {
               <Text style={styles.sideLabel}>Eaten</Text>
             </View>
 
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
+            <View style={styles.ringWrap}>
               <SemiRing size={118} stroke={10} progress={total > 0 ? eaten / total : 0} />
               <View style={styles.ringCenterText}>
                 <Text style={styles.ringNumber}>{total}cal</Text>
@@ -720,7 +722,21 @@ const styles = {
   sideNumber: { color: "white", fontWeight: "900" as const, fontSize: 16 },
   sideLabel: { color: "#C7CFDD", fontSize: 12, marginTop: 6, opacity: 0.85 },
 
-  ringCenterText: { position: "absolute" as const, alignItems: "center" as const, justifyContent: "center" as const },
+  ringCenterText: {
+    position: "absolute" as const,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  ringWrap: {
+    width: 118,
+    height: 118,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
   ringNumber: { color: "white", fontWeight: "900" as const, fontSize: 16 },
   ringSub: { color: "#C7CFDD", fontSize: 12, marginTop: 2, opacity: 0.85 },
 

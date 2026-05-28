@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 type Gender = "male" | "female" | "na" | "others";
 type GoalType = "lose_weight" | "gain_muscle" | "stay_fit" | "endurance";
@@ -112,6 +113,11 @@ function calculateCalorieGoal(params: {
 }
 
 export default function Signup() {
+  const { contentContainerStyle } = useResponsiveLayout({
+    maxWidth: 640,
+    paddingTop: 40,
+    paddingBottom: 140,
+  });
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -334,7 +340,7 @@ export default function Signup() {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 140 }}
+        contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>

@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 type Status = "pending" | "approved" | "declined" | "ended";
 
@@ -14,6 +15,7 @@ const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
 export default function TrainerRequests() {
+    const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
     const [active, setActive] = useState<Status | "all">("all");
     const [loading, setLoading] = useState(true);
     const [requests, setRequests] = useState<any[]>([]);
@@ -112,7 +114,7 @@ export default function TrainerRequests() {
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={contentContainerStyle} showsVerticalScrollIndicator={false}>
                 <View style={styles.headerRow}>
                     <TouchableOpacity activeOpacity={0.9} style={styles.iconBtn} onPress={() => router.back()}>
                         <Ionicons name="arrow-back-outline" size={22} color="white" />

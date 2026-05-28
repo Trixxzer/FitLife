@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { TRAINER_UPLOADS_BUCKET } from "../../../lib/storage";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -34,6 +35,7 @@ type ChatRow = {
 };
 
 export default function UserChats() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 40, paddingBottom: 24 });
   const [loading, setLoading] = useState(true);
   const [chats, setChats] = useState<ChatRow[]>([]);
 
@@ -104,7 +106,7 @@ export default function UserChats() {
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={contentContainerStyle}>
         <View style={{ flexDirection: "row", alignItems: "center", marginTop: 40 }}>
           <TouchableOpacity
             activeOpacity={0.9}

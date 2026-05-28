@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { openStorageFile, TRAINER_UPLOADS_BUCKET } from "../../lib/storage";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -40,6 +41,7 @@ type TrainerApplication = {
 };
 
 export default function AdminPage() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -296,7 +298,7 @@ export default function AdminPage() {
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

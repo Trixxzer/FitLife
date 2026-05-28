@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { TRAINER_UPLOADS_BUCKET } from "../../../lib/storage";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -43,6 +44,7 @@ type TrainerCard = {
 };
 
 export default function BrowseTrainers() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
   const [loading, setLoading] = useState(true);
   const [trainers, setTrainers] = useState<TrainerCard[]>([]);
 
@@ -98,7 +100,7 @@ export default function BrowseTrainers() {
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>

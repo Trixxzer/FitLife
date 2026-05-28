@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ACCENT = "#FF4D2D";
 const CARD = "#111A2C";
@@ -47,6 +48,7 @@ type DayLeaderRow = {
 };
 
 export default function Gamification() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 40 });
   const [loading, setLoading] = useState(true);
   const [streaks, setStreaks] = useState<Record<string, StreakRow>>({});
   const [badges, setBadges] = useState<BadgeRow[]>([]);
@@ -73,42 +75,43 @@ export default function Gamification() {
 
       const userId = user?.id;
 
-      const [streakRes, badgeRes, earnedRes, leaderRes, dayLeaderRes] = await Promise.all([
-        userId
-          ? supabase
-              .from("user_streaks")
-              .select("streak_type,current_streak,longest_streak,last_log_date")
-              .eq("user_id", userId)
-          : Promise.resolve({ data: [] as any, error: null }),
+      const [streakRes, badgeRes, earnedRes, leaderRes, dayLeaderRes] =
+        await Promise.all([
+          userId
+            ? supabase
+                .from("user_streaks")
+                .select(
+                  "streak_type,current_streak,longest_streak,last_log_date",
+                )
+                .eq("user_id", userId)
+            : Promise.resolve({ data: [] as any, error: null }),
 
-        supabase
-          .from("badge_definitions")
-          .select(
-            "id,badge_name,badge_description,icon_name,badge_category,requirement_value,color_hex",
-          )
-          .order("requirement_value", { ascending: true }),
+          supabase
+            .from("badge_definitions")
+            .select(
+              "id,badge_name,badge_description,icon_name,badge_category,requirement_value,color_hex",
+            )
+            .order("requirement_value", { ascending: true }),
 
-        userId
-          ? supabase
-              .from("user_badges")
-              .select("badge_id")
-              .eq("user_id", userId)
-          : Promise.resolve({ data: [] as any, error: null }),
+          userId
+            ? supabase
+                .from("user_badges")
+                .select("badge_id")
+                .eq("user_id", userId)
+            : Promise.resolve({ data: [] as any, error: null }),
 
-        supabase
-          .from("challenge_scores")
-          .select("user_id,score")
-          .eq("challenge_key", "squat")
-          .order("score", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(200),
+          supabase
+            .from("squat_leaderboard_top")
+            .select("rank,user_name,best_score,average_score")
+            .order("rank", { ascending: true })
+            .limit(5),
 
-        supabase
-          .from("daily_workout_leaderboard_top")
-          .select("rank,user_name,workout_count,workout_date")
-          .order("rank", { ascending: true })
-          .limit(5),
-      ]);
+          supabase
+            .from("daily_workout_leaderboard_top")
+            .select("rank,user_name,workout_count,workout_date")
+            .order("rank", { ascending: true })
+            .limit(5),
+        ]);
 
       if (streakRes.error) throw streakRes.error;
       if (badgeRes.error) throw badgeRes.error;
@@ -124,49 +127,7 @@ export default function Gamification() {
       setStreaks(streakMap);
       setBadges((badgeRes.data || []) as BadgeRow[]);
       setEarned(new Set((earnedRes.data || []).map((r: any) => r.badge_id)));
-      const leaderRows = (leaderRes.data || []) as Array<{ user_id: string; score: number }>;
-      const userIds = Array.from(new Set(leaderRows.map((r) => r.user_id)));
-      const { data: profiles, error: profileErr } = userIds.length
-        ? await supabase.from("profiles").select("id,first_name").in("id", userIds)
-        : { data: [], error: null };
-
-      if (profileErr) throw profileErr;
-
-      const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.first_name]));
-      const stats = new Map<
-        string,
-        { user_name: string; best_score: number; average_score: number; total: number; attempts: number }
-      >();
-
-      leaderRows.forEach((row) => {
-        const existing = stats.get(row.user_id);
-        if (!existing) {
-          stats.set(row.user_id, {
-            user_name: nameMap.get(row.user_id) || "User",
-            best_score: Number(row.score || 0),
-            average_score: 0,
-            total: Number(row.score || 0),
-            attempts: 1,
-          });
-        } else {
-          existing.best_score = Math.max(existing.best_score, Number(row.score || 0));
-          existing.total += Number(row.score || 0);
-          existing.attempts += 1;
-        }
-      });
-
-      const leadersMapped: LeaderRow[] = Array.from(stats.values())
-        .map((s, idx) => ({
-          rank: idx + 1,
-          user_name: s.user_name,
-          best_score: s.best_score,
-          average_score: s.attempts ? Math.round(s.total / s.attempts) : 0,
-        }))
-        .sort((a, b) => b.best_score - a.best_score)
-        .slice(0, 5)
-        .map((row, idx) => ({ ...row, rank: idx + 1 }));
-
-      setLeaders(leadersMapped);
+      setLeaders((leaderRes.data || []) as LeaderRow[]);
       setDayLeaders((dayLeaderRes.data || []) as DayLeaderRow[]);
     } catch (e) {
       console.log("loadGamification error", e);
@@ -188,13 +149,15 @@ export default function Gamification() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.hello}>Rewards</Text>
-            <Text style={styles.welcome}>Streaks, badges, and leaderboards.</Text>
+            <Text style={styles.welcome}>
+              Streaks, badges, and leaderboards.
+            </Text>
           </View>
 
           <View style={styles.iconBtn}>
@@ -236,15 +199,15 @@ export default function Gamification() {
             badgeGroups.map((b) => (
               <View
                 key={b.id}
-                style={[
-                  styles.badgeCard,
-                  !b.earned && { opacity: 0.5 },
-                ]}
+                style={[styles.badgeCard, !b.earned && { opacity: 0.5 }]}
               >
                 <View
                   style={[
                     styles.badgeIcon,
-                    { borderColor: b.color_hex, backgroundColor: "rgba(255,255,255,0.06)" },
+                    {
+                      borderColor: b.color_hex,
+                      backgroundColor: "rgba(255,255,255,0.06)",
+                    },
                   ]}
                 >
                   <Ionicons
@@ -273,7 +236,10 @@ export default function Gamification() {
             </View>
           ) : (
             leaders.map((row) => (
-              <View key={`${row.rank}-${row.user_name}`} style={styles.leaderRow}>
+              <View
+                key={`${row.rank}-${row.user_name}`}
+                style={styles.leaderRow}
+              >
                 <Text style={styles.rank}>{row.rank}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{row.user_name}</Text>
@@ -307,11 +273,16 @@ export default function Gamification() {
             </View>
           ) : (
             dayLeaders.map((row) => (
-              <View key={`${row.rank}-${row.user_name}`} style={styles.leaderRow}>
+              <View
+                key={`${row.rank}-${row.user_name}`}
+                style={styles.leaderRow}
+              >
                 <Text style={styles.rank}>{row.rank}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{row.user_name}</Text>
-                  <Text style={styles.meta}>{formatDate(row.workout_date)}</Text>
+                  <Text style={styles.meta}>
+                    {formatDate(row.workout_date)}
+                  </Text>
                 </View>
                 <Text style={styles.score}>{row.workout_count} workouts</Text>
               </View>
@@ -418,7 +389,12 @@ const styles = {
     justifyContent: "space-between" as const,
   },
   streakTitle: { color: "white", fontWeight: "900" as const },
-  streakValue: { color: ACCENT, fontWeight: "900" as const, fontSize: 20, marginTop: 10 },
+  streakValue: {
+    color: ACCENT,
+    fontWeight: "900" as const,
+    fontSize: 20,
+    marginTop: 10,
+  },
   streakMeta: { color: MUTED, fontSize: 12, marginTop: 6 },
   badgeGrid: {
     flexDirection: "row" as const,

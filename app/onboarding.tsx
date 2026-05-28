@@ -1,13 +1,13 @@
 import { router } from "expo-router";
-import React from "react";
+import React, { useMemo } from "react";
 import {
-  Dimensions,
   Image,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import Animated, {
   Extrapolate,
@@ -16,8 +16,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from "react-native-reanimated";
-
-const { width: W, height: H } = Dimensions.get("window");
 
 const ORANGE = "#FF5A3C";
 const BG = "#0B1118";
@@ -58,6 +56,14 @@ const SLIDES: Slide[] = [
 ];
 
 export default function Onboarding() {
+  const { width, height } = useWindowDimensions();
+  const W = width;
+  const H = height;
+  const imageCardWidth = useMemo(() => {
+    if (width >= 1024) return Math.min(760, width - 120);
+    if (width >= 768) return Math.min(620, width - 96);
+    return width - 44;
+  }, [width]);
   const scrollX = useSharedValue(0);
 
   const onScroll = useAnimatedScrollHandler({
@@ -71,7 +77,7 @@ export default function Onboarding() {
       <StatusBar barStyle="light-content" />
 
       {/* IMAGE STACK (must NOT block touches) */}
-      <View style={styles.imageStack} pointerEvents="none">
+       <View style={styles.imageStack} pointerEvents="none">
         {SLIDES.map((item, index) => {
           const imageStyle = useAnimatedStyle(() => {
             const x = scrollX.value / W;
@@ -118,7 +124,7 @@ export default function Onboarding() {
           });
 
           return (
-            <Animated.View key={index} style={[styles.imageCard, imageStyle]}>
+            <Animated.View key={index} style={[styles.imageCard, { width: imageCardWidth }, imageStyle]}>
               <Image source={item.image} style={styles.image} />
             </Animated.View>
           );
@@ -136,14 +142,16 @@ export default function Onboarding() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         style={{ flex: 1 }}
-        renderItem={({ item }) => (
+         renderItem={({ item }) => (
           <View style={{ width: W, flex: 1, alignItems: "center" }}>
             <Text style={styles.title}>
               {item.title}
               <Text style={styles.highlight}>{item.highlight}</Text>
             </Text>
 
-            <Text style={styles.subtitle}>{item.subtitle}</Text>
+             <Text style={[styles.subtitle, { marginTop: 150 + H * 0.45 + 18 - 60 }]}>
+               {item.subtitle}
+             </Text>
           </View>
         )}
       />
@@ -202,13 +210,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 150,
     width: "100%",
-    height: H * 0.53,
+    height: "53%",
     alignItems: "center",
   },
 
   imageCard: {
     position: "absolute",
-    width: W - 44,
     height: "100%",
     backgroundColor: CARD,
     borderRadius: 22,
@@ -234,7 +241,6 @@ const styles = StyleSheet.create({
 
   // Put subtitle under the card (Figma-like)
   subtitle: {
-    marginTop: 150 + H * 0.45 + 18 - 60, // aligns below the image stack visually
     fontSize: 16,
     color: "rgba(255,255,255,0.85)",
     textAlign: "center",

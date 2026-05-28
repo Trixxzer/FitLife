@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ORANGE = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -53,6 +54,7 @@ function formatPrice(value?: number | null) {
 }
 
 export default function ReviewRequests() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 24 });
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [requests, setRequests] = useState<RequestRow[]>([]);
@@ -176,7 +178,7 @@ export default function ReviewRequests() {
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <View

@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ORANGE = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -11,6 +12,7 @@ const BORDER = "#1F2A44";
 const MUTED = "#9AA6BD";
 
 export default function TrainerHome() {
+    const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20 });
     const [loading, setLoading] = useState(true);
     const [approvedTrainerCount, setApprovedTrainerCount] = useState(0);
     const [pendingRequestCount, setPendingRequestCount] = useState(0);
@@ -68,7 +70,7 @@ export default function TrainerHome() {
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={contentContainerStyle} showsVerticalScrollIndicator={false}>
                 <Text style={styles.title}>Trainer</Text>
                 <Text style={styles.sub}>Find, hire, and manage your coaching.</Text>
 

@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
+import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const ORANGE = "#FF4D2D";
 const BG = "#0B0F1A";
@@ -47,6 +48,7 @@ type WorkoutRow = {
 };
 
 export default function Clients() {
+  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 24 });
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -196,7 +198,7 @@ export default function Clients() {
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>Clients</Text>

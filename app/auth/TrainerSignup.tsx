@@ -16,10 +16,16 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
+import { useResponsiveLayout } from "../../lib/useResponsiveLayout";
 
 type Gender = "male" | "female" | "na";
 
 export default function TrainerSignup() {
+  const { contentContainerStyle } = useResponsiveLayout({
+    maxWidth: 640,
+    paddingTop: 40,
+    paddingBottom: 140,
+  });
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -269,7 +275,7 @@ export default function TrainerSignup() {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 140 }}
+        contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
