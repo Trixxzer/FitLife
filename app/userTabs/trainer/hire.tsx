@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
-import { useResponsiveLayout } from "../../../lib/useResponsiveLayout";
 
 const BG = "#0B0F1A";
 const CARD = "#111A2C";
@@ -83,7 +82,6 @@ function formatMoney(value: number | null | undefined) {
 }
 
 export default function HireTrainerPage() {
-  const { contentContainerStyle } = useResponsiveLayout({ paddingTop: 20, paddingBottom: 24 });
   const params = useLocalSearchParams();
 
   const trainerId = normalizeParam(
@@ -251,11 +249,11 @@ export default function HireTrainerPage() {
       setTrainer(resolvedTrainer);
       setPackages(packageRows);
 
-      const finalTrainerProfileId =
-        resolvedTrainer?.id || trainerId || null;
+      const queryTrainerId =
+        resolvedTrainer?.user_id || resolvedTrainer?.id || trainerId || null;
 
-      if (finalTrainerProfileId) {
-        await loadRequestsAndPayments(user.id, finalTrainerProfileId);
+      if (queryTrainerId) {
+        await loadRequestsAndPayments(user.id, queryTrainerId);
       }
     } catch (e: any) {
       console.log("[hire.tsx] loadData error:", e);
@@ -269,9 +267,11 @@ export default function HireTrainerPage() {
     }
   }, [trainerId, loadRequestsAndPayments]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   function getRequestForPackage(packageId: string) {
     return (
@@ -635,7 +635,7 @@ export default function HireTrainerPage() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: BG }}
-      contentContainerStyle={contentContainerStyle}
+      contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerCard}>

@@ -3,5 +3,6 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "cmake.sourceDirectory": "D:/STUDIES/FITLIFE_Android/FitLife/react-native-mediapipe/android"
 }
